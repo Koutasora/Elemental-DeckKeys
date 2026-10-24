@@ -44,7 +44,14 @@ const I18N = {
     tabFiles: "Files",
     dropHint: "Drop files here to send them to the Deck",
     chooseFiles: "Choose files",
-    filesFolder: "Files are saved on the Deck in Downloads/DeckKeysTransfers. Nothing is overwritten.",
+    filesFolder: "Files are saved on the Deck in Downloads/DeckKeysTransfers/Received. Nothing is overwritten.",
+    fromDeck: "Get from the Deck",
+    refresh: "Refresh",
+    outboxHint: "On the Deck, put files in Downloads/DeckKeysTransfers/Send to PC to get them here.",
+    outboxEmpty: "No files waiting.",
+    download: "Download",
+    saveAs: "Save as…",
+    downloadFailed: "The file could not be downloaded.",
     clearList: "Clear list",
     cancel: "Cancel",
     uploadWaiting: "Waiting",
@@ -187,7 +194,14 @@ const I18N = {
     tabFiles: "Pliki",
     dropHint: "Upuść tu pliki, aby wysłać je na Decka",
     chooseFiles: "Wybierz pliki",
-    filesFolder: "Pliki zapisują się na Decku w Downloads/DeckKeysTransfers. Nic nie jest nadpisywane.",
+    filesFolder: "Pliki zapisują się na Decku w Downloads/DeckKeysTransfers/Received. Nic nie jest nadpisywane.",
+    fromDeck: "Pobierz z Decka",
+    refresh: "Odśwież",
+    outboxHint: "Na Decku wrzuć pliki do Downloads/DeckKeysTransfers/Send to PC, aby pobrać je tutaj.",
+    outboxEmpty: "Nie ma plików do pobrania.",
+    download: "Pobierz",
+    saveAs: "Zapisz jako…",
+    downloadFailed: "Nie udało się pobrać pliku.",
     clearList: "Wyczyść listę",
     cancel: "Anuluj",
     uploadWaiting: "Czeka",
@@ -711,6 +725,7 @@ function selectTab(name) {
   $("tab-pad").setAttribute("aria-selected", String(name === "pad"));
   $("tab-files").setAttribute("aria-selected", String(name === "files"));
   $("panel-files").hidden = name !== "files";
+  if (name === "files") loadOutbox();
   $("panel-pad").hidden = name !== "pad";
   if (name !== "pad") releaseMouse();
   $("panel-media").hidden = name !== "media";
@@ -1097,7 +1112,66 @@ function nextUpload() {
   xhr.send(item.file);
 }
 
+function downloadUrl(name) {
+  return `/api/files/download?name=${encodeURIComponent(name)}`;
+}
+
+// Chrome and Edge on a PC can ask where to save; the file is streamed straight to disk.
+async function saveAs(file) {
+  try {
+    const handle = await window.showSaveFilePicker({ suggestedName: file.name });
+    const response = await fetch(downloadUrl(file.name), { cache: "no-store" });
+    if (!response.ok) throw new Error(String(response.status));
+    await response.body.pipeTo(await handle.createWritable());
+  } catch (error) {
+    if (error.name !== "AbortError") showMessage(t("downloadFailed"), true);
+  }
+}
+
+async function loadOutbox() {
+  const list = $("outbox");
+  list.replaceChildren();
+  $("outbox-empty").hidden = true;
+  if (!state.session) return;
+  let files = [];
+  try {
+    const response = await fetch("/api/files", { cache: "no-store" });
+    if (!response.ok) return;
+    files = (await response.json()).files;
+  } catch {
+    return;
+  }
+  $("outbox-empty").hidden = files.length > 0;
+  for (const file of files) {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = `${file.name} · ${formatSize(file.size)}`;
+    const info = document.createElement("span");
+    info.className = "info";
+    info.textContent = new Date(file.time * 1000).toLocaleString(lang);
+    const buttons = document.createElement("span");
+    buttons.className = "actions";
+    const link = document.createElement("a");
+    link.className = "button";
+    link.href = downloadUrl(file.name);
+    link.download = file.name;
+    link.textContent = t("download");
+    buttons.append(link);
+    if (window.showSaveFilePicker) {
+      const save = document.createElement("button");
+      save.type = "button";
+      save.textContent = t("saveAs");
+      save.addEventListener("click", () => saveAs(file));
+      buttons.append(save);
+    }
+    li.append(name, info, buttons);
+    list.append(li);
+  }
+}
+
 function bindFiles() {
+  $("outbox-refresh").addEventListener("click", loadOutbox);
   const drop = $("drop");
   $("choose-files").addEventListener("click", () => $("file-input").click());
   $("file-input").addEventListener("change", () => {
@@ -1221,6 +1295,7 @@ function connect() {
 function handleMessage(msg) {
   if (msg.t === "state") {
     if (state.session && !msg.session) endedSession();
+    if (!state.session && msg.session && tab === "files") setTimeout(loadOutbox);
     Object.assign(state, { session: msg.session, remaining: msg.remaining, typing: msg.typing });
     if (msg.reason === "idle") showMessage(t("endedIdle", { n: sessionMinutes() }));
     render();

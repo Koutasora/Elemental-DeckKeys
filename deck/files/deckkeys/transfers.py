@@ -1,7 +1,7 @@
 """The transfers folder: Downloads/DeckKeysTransfers of the Deck user.
 
-Files sent from a browser are saved here and files placed here can be downloaded.
-Nothing outside this folder is ever read or written.
+Files sent from a browser are saved in its "Received" folder; files the user puts in
+"Send to PC" can be downloaded. Nothing outside these folders is ever read or written.
 """
 
 import json
@@ -13,6 +13,8 @@ import stat
 import time
 
 FOLDER = os.path.join("Downloads", "DeckKeysTransfers")
+INBOX = "Received"
+OUTBOX = "Send to PC"
 SPACE_RESERVE = 200 * 1024 * 1024
 MAX_NAME_BYTES = 200
 MAX_RECEIVED = 20
@@ -34,6 +36,8 @@ class Transfers:
         account = pwd.getpwnam(user)
         self.uid, self.gid = account.pw_uid, account.pw_gid
         self.folder = os.path.join(account.pw_dir, FOLDER)
+        self.inbox = os.path.join(self.folder, INBOX)
+        self.outbox = os.path.join(self.folder, OUTBOX)
         self._received_path = os.path.join(data_dir, "received.json")
         try:
             with open(self._received_path, encoding="utf-8") as f:
@@ -43,7 +47,7 @@ class Transfers:
 
     def _ensure_folder(self):
         downloads = os.path.dirname(self.folder)
-        for path in (downloads, self.folder):
+        for path in (downloads, self.folder, self.inbox, self.outbox):
             if os.path.islink(path):
                 raise PermissionError(f"{path} is a link")
             if not os.path.isdir(path):
@@ -52,13 +56,16 @@ class Transfers:
 
     def free_space(self):
         self._ensure_folder()
-        return shutil.disk_usage(self.folder).free - SPACE_RESERVE
+        return shutil.disk_usage(self.inbox).free - SPACE_RESERVE
 
     def list(self):
-        if not os.path.isdir(self.folder) or os.path.islink(self.folder):
+        """Files waiting in "Send to PC"."""
+        try:
+            self._ensure_folder()
+        except OSError:
             return []
         files = []
-        with os.scandir(self.folder) as entries:
+        with os.scandir(self.outbox) as entries:
             for entry in entries:
                 if entry.name.startswith(".") or not entry.is_file(follow_symlinks=False):
                     continue
@@ -71,7 +78,7 @@ class Transfers:
     def open_part(self):
         """A hidden temporary file for an upload in progress."""
         self._ensure_folder()
-        path = os.path.join(self.folder, f".deckkeys-{secrets.token_hex(6)}.part")
+        path = os.path.join(self.inbox, f".deckkeys-{secrets.token_hex(6)}.part")
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
         return path, os.fdopen(fd, "wb")
 
@@ -82,7 +89,7 @@ class Transfers:
         for n in range(1000):
             final = f"{stem}{ext}" if n == 0 else f"{stem} ({n}){ext}"
             try:
-                os.link(part, os.path.join(self.folder, final))  # fails if the name is taken
+                os.link(part, os.path.join(self.inbox, final))  # fails if the name is taken
             except FileExistsError:
                 continue
             os.unlink(part)
@@ -97,11 +104,11 @@ class Transfers:
             pass
 
     def open_file(self, name):
-        """A file of the folder for download, or None. Links and hidden files are refused."""
-        if name != safe_name(name):
+        """A file of "Send to PC" for download, or None. Links and hidden files are refused."""
+        if name != safe_name(name) or os.path.islink(self.outbox):
             return None
         try:
-            fd = os.open(os.path.join(self.folder, name), os.O_RDONLY | os.O_NOFOLLOW)
+            fd = os.open(os.path.join(self.outbox, name), os.O_RDONLY | os.O_NOFOLLOW)
         except OSError:
             return None
         if not stat.S_ISREG(os.fstat(fd).st_mode):

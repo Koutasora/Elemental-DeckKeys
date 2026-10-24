@@ -11,7 +11,7 @@ import ssl
 import threading
 import time
 from http.cookies import CookieError, SimpleCookie
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, quote
 
 from . import __version__, certs, qr
 from .keyboard import (BROWSER_CODES, BUTTONS, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard,
@@ -312,6 +312,12 @@ class Server:
             return await self._json(writer, request, 200, {"url": url, "svg": qr.svg(url)})
         if path == "/api/files" and method == "PUT":
             return await self._upload(request, reader, writer)
+        if path == "/api/files" and method == "GET":
+            if not self._session_device(request):
+                return await self._json(writer, request, 403, {"error": "no_session"})
+            return await self._json(writer, request, 200, {"files": self.transfers.list()})
+        if path == "/api/files/download" and method == "GET":
+            return await self._download(request, writer)
         if path == "/api/pair" and method == "POST":
             return await self._pair(request, writer)
         if path == "/api/forget" and method == "POST":
@@ -379,7 +385,7 @@ class Server:
             "devices": self._device_list(),
             "phone_url": self.phone_url(),
             "qr": qr.svg(self.phone_url()),
-            "transfers_folder": self.transfers.folder,
+            "transfers_folder": self.transfers.inbox,
             "received": self.transfers.received[:5],
         }
 
@@ -430,6 +436,37 @@ class Server:
             raise
         print(f"Received: {name} ({length} bytes)", flush=True)
         await self._json(writer, request, 200, {"name": name, "size": length})
+
+    async def _download(self, request, writer):
+        """GET /api/files/download?name=...: one file of "Send to PC", streamed."""
+        if not self._session_device(request):
+            return await self._json(writer, request, 403, {"error": "no_session"})
+        name = request.query.get("name", [""])[0]
+        f = self.transfers.open_file(name)  # checks the name
+        if f is None:
+            return await self._respond(writer, request, 404)
+        with f:
+            size = os.fstat(f.fileno()).st_size
+            fallback = name.encode("ascii", "replace").decode().replace('"', "_")
+            writer.write("\r\n".join([
+                "HTTP/1.1 200 OK",
+                f"Content-Length: {size}",
+                "Content-Type: application/octet-stream",
+                f"Content-Disposition: attachment; filename=\"{fallback}\"; "
+                f"filename*=UTF-8''{quote(name)}",
+                "Cache-Control: no-store",
+                "X-Content-Type-Options: nosniff",
+                "Connection: close",
+                "", "",
+            ]).encode())
+            while True:
+                chunk = await asyncio.to_thread(f.read, 1 << 20)
+                if not chunk:
+                    break
+                writer.write(chunk)
+                await writer.drain()
+                if self.client:
+                    self.client.last_activity = time.monotonic()
 
     async def _pair(self, request, writer):
         if not request.same_origin():

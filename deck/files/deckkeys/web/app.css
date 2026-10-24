@@ -309,6 +309,22 @@ kbd {
 .uploads .info.error { color: var(--danger); }
 .uploads progress { grid-column: 1 / -1; width: 100%; }
 .uploads button { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+.uploads .actions { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 8px; align-self: center; }
+.uploads .actions button { grid-row: auto; grid-column: auto; }
+
+a.button {
+  display: inline-block;
+  padding: 8px 16px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+@media (pointer: coarse) {
+  a.button { min-height: 44px; line-height: 26px; }
+}
 
 .log { margin: 20px 0; }
 
