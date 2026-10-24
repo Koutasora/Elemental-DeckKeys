@@ -44,7 +44,8 @@ const I18N = {
     actUndo: "Undo",
     actPasted: "Pasted from PC",
     log: "Log",
-    logHint: "Click a line with text to copy it.",
+    logHint: "Click a line to copy its text.",
+    logKeys: "Show keys",
     clear: "Clear",
     logTyped: "Typed: {text}",
     logTypedHidden: "Typed ({n} chars)",
@@ -131,7 +132,8 @@ const I18N = {
     actUndo: "Cofnij",
     actPasted: "Wklejono z PC",
     log: "Log",
-    logHint: "Kliknij linię z tekstem, aby ją skopiować.",
+    logHint: "Kliknij linię, aby skopiować tekst.",
+    logKeys: "Pokaż klawisze",
     clear: "Wyczyść",
     logTyped: "Wpisano: {text}",
     logTypedHidden: "Wpisano ({n} znaków)",
@@ -357,7 +359,8 @@ function pad(n) {
 
 function addLog(kind, payload = null) {
   const last = logEntries[logEntries.length - 1];
-  if (last && last.kind === kind && (kind === "typed" || kind === "deleted" || kind === "moved")) {
+  const grouped = ["typed", "deleted", "moved", "enter", "tab", "escape"];
+  if (last && last.kind === kind && grouped.includes(kind)) {
     if (kind === "typed") last.payload += payload;
     else last.count += 1;
   } else {
@@ -382,7 +385,9 @@ function logLabel(entry) {
     escape: "logEscape", selectAll: "logSelectAll", copied: "logCopied", cut: "logCut",
     undo: "logUndo",
   }[entry.kind];
-  return t(simple, { n: entry.count });
+  const label = t(simple, { n: entry.count });
+  // Tab, Escape, Enter: "Tab ×3" when repeated.
+  return entry.count > 1 && !label.includes("×") ? `${label} ×${entry.count}` : label;
 }
 
 async function copyToPc(text) {
@@ -403,7 +408,9 @@ async function copyToPc(text) {
 function renderLog() {
   const list = $("log-list");
   list.replaceChildren();
+  const showKeys = $("log-keys").checked;
   for (const entry of logEntries) {
+    if (!entry.payload && !showKeys) continue;
     const li = document.createElement("li");
     const time = document.createElement("time");
     time.textContent = entry.time;
@@ -742,6 +749,11 @@ function bind() {
   $("preview-clear").addEventListener("click", () => {
     Object.assign(preview, { text: "", cursor: 0, all: false });
     renderPreview();
+  });
+  $("log-keys").checked = store.get("logKeys", false);
+  $("log-keys").addEventListener("change", () => {
+    store.set("logKeys", $("log-keys").checked);
+    renderLog();
   });
   $("log-clear").addEventListener("click", () => {
     logEntries.length = 0;
