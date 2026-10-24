@@ -1,6 +1,7 @@
 """HTTPS + WebSocket server: pairing, session and typing text on the Deck."""
 
 import asyncio
+import hashlib
 import ipaddress
 import json
 import os
@@ -139,6 +140,12 @@ class Server:
         self.settings_path = os.path.join(data_dir, "settings.json")
         self.enabled = self._load_settings().get("enabled", True)
         self.web_dir = web_dir
+        # Changes whenever the page files change, so open pages can reload after an update.
+        digest = hashlib.sha256()
+        for name, _ in STATIC.values():
+            with open(os.path.join(web_dir, name), "rb") as f:
+                digest.update(f.read())
+        self.build = digest.hexdigest()[:12]
         self.port = port
         self.devices = DeviceStore(os.path.join(data_dir, "devices.json"))
         self.pairing = Pairing()
@@ -298,7 +305,7 @@ class Server:
             return await self._json(writer, request, 200, {
                 "paired": device_id is not None, "name": device.get("name"),
                 "kind": device.get("kind", "other") if device_id else None,
-                "pairing": self.pairing.active, "version": __version__,
+                "pairing": self.pairing.active, "version": __version__, "build": self.build,
             })
         if path == "/api/devices" and method == "GET":
             mine = self.devices.find(request.cookie(COOKIE))

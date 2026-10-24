@@ -350,6 +350,7 @@ let sessionEnded = false;
 let actionTimer = null;
 const state = { connected: false, session: false, remaining: 0, typing: false };
 const me = { name: "", kind: "other" };
+let pageBuild = null;
 
 function t(key, vars = {}) {
   const text = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
@@ -1310,6 +1311,9 @@ async function fetchStatus() {
   const response = await fetch("/api/status", { cache: "no-store" });
   const status = await response.json();
   Object.assign(me, { name: status.name || "", kind: status.kind || "other" });
+  // The Deck was updated while this page stayed open: load the new page.
+  if (pageBuild && status.build && status.build !== pageBuild) location.reload();
+  pageBuild = pageBuild || status.build;
   if (status.version) $("version").textContent = t("version", { v: status.version });
   return status;
 }
@@ -1320,6 +1324,7 @@ function connect() {
   ws = new WebSocket(`wss://${location.host}/ws`);
   ws.onopen = () => {
     state.connected = true;
+    fetchStatus().catch(() => {});
     pingTimer = setInterval(() => send({ t: "ping" }), 1000);
     render();
   };
