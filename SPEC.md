@@ -59,7 +59,8 @@ the Deck releases all held keys.
    The Deck stores only the SHA-256 hash of the key.
 4. Both panels list paired devices with a "Remove" button (takes effect immediately).
 
-Default address: `https://steamdeck.local:8443` (the IP is shown too). The key is bound to the
+Default address: `https://steamdeck.local:8443` (the IP is shown too). Plain `http://` on the same
+port is redirected to `https://`, so `steamdeck.local:8443` typed without a scheme works too. The key is bound to the
 address, so when the page is opened by IP and the IP changes, the device has to pair again.
 
 ## WebUI

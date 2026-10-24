@@ -34,7 +34,7 @@ STATIC = {
     "/app.css": ("app.css", "text/css; charset=utf-8"),
 }
 STATUS_TEXT = {
-    101: "Switching Protocols", 200: "OK", 400: "Bad Request", 401: "Unauthorized",
+    101: "Switching Protocols", 200: "OK", 301: "Moved Permanently", 400: "Bad Request", 401: "Unauthorized",
     403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed", 413: "Payload Too Large",
 }
 HOST_RE = re.compile(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$|^\[[0-9A-Fa-f:.]+\](:\d{1,5})?$")
@@ -204,6 +204,72 @@ class Server:
                 await writer.wait_closed()
             except (ConnectionError, ssl.SSLError):
                 pass
+
+    # --- Listening: HTTPS, and plain http:// redirected to https:// on the same port ---
+
+    async def _listen(self, ssl_context):
+        loop = asyncio.get_running_loop()
+        listener = socket.create_server(("0.0.0.0", self.port), backlog=100)
+        listener.setblocking(False)
+        try:
+            while True:
+                conn, _ = await loop.sock_accept(listener)
+                asyncio.create_task(self._accept(conn, ssl_context))
+        finally:
+            listener.close()
+
+    async def _peek(self, conn):
+        """First byte of the connection without consuming it."""
+        loop = asyncio.get_running_loop()
+        while True:
+            try:
+                data = conn.recv(1, socket.MSG_PEEK)
+            except BlockingIOError:
+                ready = loop.create_future()
+                loop.add_reader(conn.fileno(), lambda: ready.done() or ready.set_result(None))
+                try:
+                    await ready
+                finally:
+                    loop.remove_reader(conn.fileno())
+                continue
+            if not data:
+                raise ConnectionError("closed")
+            return data
+
+    async def _accept(self, conn, ssl_context):
+        loop = asyncio.get_running_loop()
+        conn.setblocking(False)
+        try:
+            first = await asyncio.wait_for(self._peek(conn), 10)
+            # A TLS connection always starts with a handshake record (0x16).
+            secure = first == b"\x16"
+            reader = asyncio.StreamReader(limit=MAX_HEAD)
+            protocol = asyncio.StreamReaderProtocol(reader)
+            transport, _ = await loop.connect_accepted_socket(
+                lambda: protocol, conn, ssl=ssl_context if secure else None,
+                ssl_handshake_timeout=10 if secure else None)
+        except (asyncio.TimeoutError, OSError, ssl.SSLError):
+            conn.close()
+            return
+        writer = asyncio.StreamWriter(transport, protocol, reader, loop)
+        await (self._handle if secure else self._redirect)(reader, writer)
+
+    async def _redirect(self, reader, writer):
+        peer = writer.get_extra_info("peername")
+        try:
+            if not peer or not allowed_peer(peer[0]):
+                return
+            if not self.enabled and not is_loopback(peer[0]):
+                return
+            request = await asyncio.wait_for(read_request(reader), 10)
+            if request.host:
+                await self._respond(writer, request, 301,
+                                    extra_headers=[f"Location: https://{request.host}/"])
+        except (asyncio.TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError,
+                ConnectionError, ValueError):
+            pass
+        finally:
+            writer.close()
 
     async def _route(self, request, reader, writer):
         path, method = request.path, request.method
@@ -495,9 +561,7 @@ class Server:
 
         loop.set_exception_handler(quiet_errors)
         self.keyboard = VirtualKeyboard()
-        server = await asyncio.start_server(
-            self._handle, "0.0.0.0", self.port,
-            ssl=certs.server_context(self.cert, self.key), limit=MAX_HEAD)
+        listening = asyncio.create_task(self._listen(certs.server_context(self.cert, self.key)))
         print("Elemental DeckKeys is running." if self.enabled
               else "Elemental DeckKeys is running, switched off.", flush=True)
         for address in self.addresses():
@@ -511,9 +575,12 @@ class Server:
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, stop.set)
         try:
-            async with server:
-                await stop.wait()
+            await asyncio.wait([listening, asyncio.create_task(stop.wait())],
+                               return_when=asyncio.FIRST_COMPLETED)
+            if listening.done():
+                listening.result()  # raises the error that stopped listening
         finally:
+            listening.cancel()
             if self.client:
                 await self._drop_client(self.client, "shutdown")
             self.keyboard.close()
