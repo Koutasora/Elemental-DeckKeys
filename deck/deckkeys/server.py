@@ -30,7 +30,7 @@ STATIC = {
     "/app.css": ("app.css", "text/css; charset=utf-8"),
 }
 STATUS_TEXT = {
-    101: "Switching Protocols", 200: "OK", 400: "Bad Request", 401: "Unauthorized",
+    101: "Switching Protocols", 200: "OK", 301: "Moved Permanently", 400: "Bad Request", 401: "Unauthorized",
     403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed", 413: "Payload Too Large",
 }
 HOST_RE = re.compile(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$|^\[[0-9A-Fa-f:.]+\](:\d{1,5})?$")
@@ -171,6 +171,23 @@ class Server:
                 await writer.wait_closed()
             except (ConnectionError, ssl.SSLError):
                 pass
+
+    async def _redirect(self, reader, writer):
+        """Plain HTTP on port 80: send the browser to the HTTPS page."""
+        peer = writer.get_extra_info("peername")
+        try:
+            if not peer or not allowed_peer(peer[0]):
+                return
+            request = await asyncio.wait_for(read_request(reader), 10)
+            host = (request.host or "").split(":", 1)[0]
+            if host:
+                await self._respond(writer, request, 301,
+                                    extra_headers=[f"Location: https://{host}/"])
+        except (asyncio.TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError,
+                ConnectionError, ValueError):
+            pass
+        finally:
+            writer.close()
 
     async def _route(self, request, reader, writer):
         path, method = request.path, request.method
@@ -404,6 +421,12 @@ class Server:
         server = await asyncio.start_server(
             self._handle, "0.0.0.0", self.port,
             ssl=certs.server_context(self.cert, self.key), limit=MAX_HEAD)
+        redirect = None
+        if self.port == 443:
+            try:
+                redirect = await asyncio.start_server(self._redirect, "0.0.0.0", 80, limit=MAX_HEAD)
+            except OSError as e:
+                print(f"No redirect from http:// (port 80): {e}", flush=True)
         print("Elemental DeckKeys is running.", flush=True)
         for address in self.addresses():
             print(f"  {address}", flush=True)
@@ -419,6 +442,8 @@ class Server:
             async with server:
                 await stop.wait()
         finally:
+            if redirect:
+                redirect.close()
             if self.client:
                 await self._drop_client(self.client, "shutdown")
             self.keyboard.close()

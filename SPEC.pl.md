@@ -57,7 +57,8 @@ Deck puszcza wszystkie wciśnięte klawisze.
    U siebie trzyma tylko skrót SHA-256 klucza.
 4. Lista sparowanych urządzeń w panelach z opcją „Usuń” (działa od razu).
 
-Adres domyślny: `https://steamdeck.local` (pokazywany także IP). Klucz jest przypisany
+Adres domyślny: `https://steamdeck.local` (pokazywany także IP). Zwykłe `http://` na porcie 80
+tylko przekierowuje na `https://`. Klucz jest przypisany
 do adresu, więc zmiana IP przy wejściu przez IP wymaga ponownego parowania.
 
 ## WebUI
