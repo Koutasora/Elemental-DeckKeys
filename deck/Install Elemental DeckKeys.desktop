@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Install Elemental DeckKeys
-Comment=Copy this folder to /home/deck/deckkeys first
+Comment=Runs files/install.sh next to this file
 Icon=input-keyboard
-Exec=konsole --hold -e sudo bash /home/deck/deckkeys/install.sh
+Exec=konsole --hold -e sudo bash -c "exec bash \\"\\$(dirname \\"\\$0\\")/files/install.sh\\"" %k
 Terminal=false

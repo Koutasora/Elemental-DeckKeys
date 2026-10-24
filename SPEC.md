@@ -94,7 +94,7 @@ On the PC it is opened from a bookmark or a `msedge --app=https://steamdeck.loca
 0. Virtual keyboard test in Game Mode and Desktop Mode – done.
 1. Service + WebUI text mode (HTTPS, pairing, session) – done.
 2. Live mode – done, testing on the Deck.
-3. Installer (done) + local panel with the main switch.
+3. Installer and main switch in the application menu – done. Local panel page – later, if needed.
 4. Decky panel.
 
 ## Verified (stage 0, 2026-10-24)

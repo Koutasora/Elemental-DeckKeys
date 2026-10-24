@@ -8,14 +8,15 @@ Bez podpinania klawiatury, bez SSH, bez instalowania czegokolwiek na PC.
 
 ## Stan
 
-Wczesny etap. Tryb tekstu i tryb na żywo działają; wyłącznik główny i panel Decky są
+Wczesny etap. Tryb tekstu, tryb na żywo i wyłącznik działają; panel Decky jest
 jeszcze do zrobienia. Plan w [SPEC.pl.md](SPEC.pl.md).
 
 ## Instalacja
 
-1. Skopiuj folder `deck` na Decka jako `/home/deck/deckkeys/`.
+1. Skopiuj folder `deck` w dowolne miejsce na Decku (jest w nim tylko instalator i folder `files`).
 2. W trybie pulpitu kliknij dwa razy `Install Elemental DeckKeys.desktop` i podaj hasło `sudo`.
    Od teraz usługa startuje razem z Deckiem, w trybie gry i pulpitu.
+   Jeśli żadna przeglądarka nie jest sparowana, instalator od razu pokaże kod parowania.
    Skopiowany folder można potem usunąć.
 
 ## Parowanie przeglądarki
@@ -26,6 +27,13 @@ jeszcze do zrobienia. Plan w [SPEC.pl.md](SPEC.pl.md).
    i wpisz kod.
 
 ## Używanie
+
+Menu aplikacji na Decku (bez hasła):
+
+- **Elemental DeckKeys – Pair** – kod parowania dla nowej przeglądarki.
+- **Elemental DeckKeys – On/Off** – wyłącznik główny. Wyłączony: nic nie połączy się z sieci.
+
+Na PC:
 
 - **Rozpocznij sesję**, potem zakładka **Tekst** (wpisz lub wklej, Wyślij) albo **Na żywo**
   (kliknij w pole i pisz).

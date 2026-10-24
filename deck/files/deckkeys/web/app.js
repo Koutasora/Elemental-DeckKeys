@@ -343,7 +343,7 @@ function connect() {
     ws = null;
     Object.assign(state, { connected: false, session: false, typing: false });
     currentId = null;
-    if (event.code === 4000) {
+    if (event.code === 4000 && (event.reason === "replaced" || event.reason === "forgotten")) {
       replaced = event.reason === "replaced";
       if (event.reason === "forgotten") show("pair");
       render();

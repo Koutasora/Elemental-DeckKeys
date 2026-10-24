@@ -59,12 +59,8 @@ class Request:
     def local(self):
         """From the Deck itself and not from a web page (pages cannot set this header
         cross-origin without a CORS preflight, which the server never answers)."""
-        if self.headers.get("x-deckkeys-local") != "1" or not self.peer:
-            return False
-        try:
-            return ipaddress.ip_address(self.peer.split("%", 1)[0]).is_loopback
-        except ValueError:
-            return False
+        return (self.headers.get("x-deckkeys-local") == "1" and self.peer is not None
+                and is_loopback(self.peer))
 
     def same_origin(self):
         host = self.host
@@ -85,6 +81,13 @@ async def read_request(reader):
         raise ValueError("body too large")
     body = await reader.readexactly(length) if length else b""
     return Request(method, target.split("?", 1)[0], headers, body)
+
+
+def is_loopback(ip):
+    try:
+        return ipaddress.ip_address(ip.split("%", 1)[0]).is_loopback
+    except ValueError:
+        return False
 
 
 def allowed_peer(ip):
@@ -119,6 +122,8 @@ class Client:
 class Server:
     def __init__(self, data_dir, web_dir, port):
         os.makedirs(data_dir, mode=0o700, exist_ok=True)
+        self.settings_path = os.path.join(data_dir, "settings.json")
+        self.enabled = self._load_settings().get("enabled", True)
         self.web_dir = web_dir
         self.port = port
         self.devices = DeviceStore(os.path.join(data_dir, "devices.json"))
@@ -127,6 +132,27 @@ class Server:
         self.keyboard = None
         self.client = None
         self.last_paired = None
+
+    def _load_settings(self):
+        try:
+            with open(self.settings_path, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {}
+
+    def _save_settings(self):
+        with open(self.settings_path, "w", encoding="utf-8") as f:
+            json.dump({"enabled": self.enabled}, f)
+
+    async def _switch(self, on):
+        """Main switch. Off: connections from the network are closed right away."""
+        self.enabled = on
+        self._save_settings()
+        if not on:
+            self.pairing.close()
+            if self.client:
+                await self._drop_client(self.client, "disabled")
+        print("Switched on." if on else "Switched off.", flush=True)
 
     # --- HTTP ---------------------------------------------------------------
 
@@ -159,6 +185,8 @@ class Server:
         try:
             if not peer or not allowed_peer(peer[0]):
                 return
+            if not self.enabled and not is_loopback(peer[0]):
+                return
             request = await asyncio.wait_for(read_request(reader), 10)
             request.peer = peer[0]
             await self._route(request, reader, writer)
@@ -190,7 +218,12 @@ class Server:
             return await self._pair(request, writer)
         if path == "/api/forget" and method == "POST":
             return await self._forget(request, writer)
+        if path == "/api/local/switch" and method == "POST" and request.local():
+            await self._switch(not self.enabled)
+            return await self._json(writer, request, 200, {"on": self.enabled})
         if path == "/api/local/pair" and method == "POST" and request.local():
+            if not self.enabled:
+                await self._switch(True)
             return await self._json(writer, request, 200, {
                 "code": self.pairing.open(), "seconds": CODE_LIFETIME,
                 "addresses": self.addresses(), "fingerprint": certs.fingerprint(self.cert),
@@ -198,6 +231,7 @@ class Server:
         if path == "/api/local/pairing" and method == "GET" and request.local():
             return await self._json(writer, request, 200, {
                 "active": self.pairing.active, "paired": self.last_paired,
+                "on": self.enabled, "devices": len(self.devices.devices),
             })
         if path == "/ws" and method == "GET":
             return await self._websocket(request, reader, writer)
@@ -404,7 +438,8 @@ class Server:
         server = await asyncio.start_server(
             self._handle, "0.0.0.0", self.port,
             ssl=certs.server_context(self.cert, self.key), limit=MAX_HEAD)
-        print("Elemental DeckKeys is running.", flush=True)
+        print("Elemental DeckKeys is running." if self.enabled
+              else "Elemental DeckKeys is running, switched off.", flush=True)
         for address in self.addresses():
             print(f"  {address}", flush=True)
         print(f"  Certificate: {certs.fingerprint(self.cert)}", flush=True)

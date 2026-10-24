@@ -1,6 +1,5 @@
 #!/bin/bash
 # Removes Elemental DeckKeys: service, program, certificate, paired devices and menu entries.
-# Usage: sudo bash uninstall.sh
 if [ "$(id -u)" != 0 ]; then
   echo "Run with sudo."
   exit 1
@@ -12,7 +11,6 @@ home="$(getent passwd "$user" | cut -d: -f6)"
 systemctl disable --now elemental-deckkeys 2>/dev/null
 rm -f /etc/systemd/system/elemental-deckkeys.service
 systemctl daemon-reload
-rm -f "$home/.local/share/applications/elemental-deckkeys-pair.desktop" \
-      "$home/.local/share/applications/elemental-deckkeys-uninstall.desktop"
+rm -f "$home"/.local/share/applications/elemental-deckkeys-*.desktop
 rm -rf "$home/.local/share/elemental-deckkeys"
 echo "Elemental DeckKeys removed."
