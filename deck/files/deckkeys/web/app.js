@@ -41,6 +41,20 @@ const I18N = {
     tabLive: "Live",
     tabMedia: "Media",
     tabPad: "Touchpad",
+    tabFiles: "Files",
+    dropHint: "Drop files here to send them to the Deck",
+    chooseFiles: "Choose files",
+    filesFolder: "Files are saved on the Deck in Downloads/DeckKeysTransfers. Nothing is overwritten.",
+    clearList: "Clear list",
+    cancel: "Cancel",
+    uploadWaiting: "Waiting",
+    uploadSending: "{sent} of {size}",
+    uploadDone: "Saved as {name}",
+    uploadCancelled: "Cancelled",
+    uploadFailed: "Not sent",
+    no_space: "Not enough space on the Deck.",
+    save_failed: "The Deck could not save the file.",
+    logFile: "File sent: {name}",
     mouseLeft: "Left",
     mouseMiddle: "Middle",
     mouseRight: "Right",
@@ -170,6 +184,20 @@ const I18N = {
     tabLive: "Na żywo",
     tabMedia: "Multimedia",
     tabPad: "Touchpad",
+    tabFiles: "Pliki",
+    dropHint: "Upuść tu pliki, aby wysłać je na Decka",
+    chooseFiles: "Wybierz pliki",
+    filesFolder: "Pliki zapisują się na Decku w Downloads/DeckKeysTransfers. Nic nie jest nadpisywane.",
+    clearList: "Wyczyść listę",
+    cancel: "Anuluj",
+    uploadWaiting: "Czeka",
+    uploadSending: "{sent} z {size}",
+    uploadDone: "Zapisano jako {name}",
+    uploadCancelled: "Anulowano",
+    uploadFailed: "Nie wysłano",
+    no_space: "Za mało miejsca na Decku.",
+    save_failed: "Deck nie mógł zapisać pliku.",
+    logFile: "Wysłano plik: {name}",
     mouseLeft: "Lewy",
     mouseMiddle: "Środkowy",
     mouseRight: "Prawy",
@@ -387,7 +415,8 @@ function render() {
   const canSend = state.connected && state.session && !state.typing;
   $("send-btn").disabled = !canSend;
   document.querySelectorAll("#saved .send").forEach((b) => { b.disabled = !canSend; });
-  document.querySelectorAll("[data-media], [data-macro], [data-mouse], #pad-esc").forEach((b) => {
+  $("drop").classList.toggle("off", !canSend);
+  document.querySelectorAll("[data-media], [data-macro], [data-mouse], #pad-esc, #choose-files").forEach((b) => {
     b.disabled = !canSend;
   });
   renderPad();
@@ -584,8 +613,9 @@ function logLabel(entry) {
   const simple = {
     deleted: "logDeleted", moved: "logMoved", enter: "logEnter", tab: "logTab",
     escape: "logEscape", selectAll: "logSelectAll", copied: "logCopied", cut: "logCut",
-    undo: "logUndo", macro: "logMacro",
+    undo: "logUndo", macro: "logMacro", file: "logFile",
   }[entry.kind];
+  if (entry.kind === "file") return t(simple, { name: entry.name });
   if (entry.kind === "macro") return t(simple, { name: entry.name });
   const label = t(simple, { n: entry.count });
   // Tab, Escape, Enter: "Tab ×3" when repeated.
@@ -612,7 +642,7 @@ function renderLog() {
   list.replaceChildren();
   const showKeys = $("log-keys").checked;
   for (const entry of logEntries) {
-    const isText = ["typed", "sent", "pasted"].includes(entry.kind);
+    const isText = ["typed", "sent", "pasted", "file"].includes(entry.kind);
     if (!isText && !showKeys) continue;
     const li = document.createElement("li");
     const time = document.createElement("time");
@@ -679,6 +709,8 @@ function selectTab(name) {
   $("tab-live").setAttribute("aria-selected", String(name === "live"));
   $("tab-media").setAttribute("aria-selected", String(name === "media"));
   $("tab-pad").setAttribute("aria-selected", String(name === "pad"));
+  $("tab-files").setAttribute("aria-selected", String(name === "files"));
+  $("panel-files").hidden = name !== "files";
   $("panel-pad").hidden = name !== "pad";
   if (name !== "pad") releaseMouse();
   $("panel-media").hidden = name !== "media";
@@ -950,6 +982,145 @@ function bindPad() {
       button.addEventListener(type, () => mouseButton(name, false));
     }
     button.addEventListener("contextmenu", (event) => event.preventDefault());
+  });
+}
+
+// --- Files -----------------------------------------------------------------
+
+const uploads = [];
+let uploading = false;
+
+function formatSize(bytes) {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${unit ? value.toFixed(1) : value} ${units[unit]}`;
+}
+
+function renderUploads() {
+  const list = $("uploads");
+  list.replaceChildren();
+  $("uploads-head").hidden = uploads.length === 0;
+  for (const item of uploads) {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = `${item.file.name} · ${formatSize(item.file.size)}`;
+    const info = document.createElement("span");
+    info.className = "info";
+    const texts = {
+      waiting: t("uploadWaiting"),
+      sending: t("uploadSending", { sent: formatSize(item.sent), size: formatSize(item.file.size) }),
+      done: t("uploadDone", { name: item.savedAs }),
+      cancelled: t("uploadCancelled"),
+      failed: `${t("uploadFailed")}: ${item.error}`,
+    };
+    info.textContent = texts[item.status];
+    info.classList.toggle("error", item.status === "failed");
+    li.append(name, info);
+    if (item.status === "waiting" || item.status === "sending") {
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = t("cancel");
+      cancel.addEventListener("click", () => {
+        if (item.xhr) item.xhr.abort();
+        else item.status = "cancelled";
+        renderUploads();
+      });
+      li.append(cancel);
+    }
+    if (item.status === "sending") {
+      const bar = document.createElement("progress");
+      bar.max = item.file.size || 1;
+      bar.value = item.sent;
+      li.append(bar);
+    }
+    list.append(li);
+  }
+}
+
+function addFiles(files) {
+  for (const file of files) uploads.push({ file, status: "waiting", sent: 0, xhr: null });
+  renderUploads();
+  nextUpload();
+}
+
+// One file at a time, streamed with PUT; XMLHttpRequest reports upload progress.
+function nextUpload() {
+  if (uploading) return;
+  const item = uploads.find((u) => u.status === "waiting");
+  if (!item) return;
+  if (!state.session) {
+    Object.assign(item, { status: "failed", error: t("no_session") });
+    renderUploads();
+    nextUpload();
+    return;
+  }
+  uploading = true;
+  item.status = "sending";
+  const xhr = new XMLHttpRequest();
+  item.xhr = xhr;
+  xhr.open("PUT", `/api/files?name=${encodeURIComponent(item.file.name)}`);
+  xhr.upload.onprogress = (event) => {
+    item.sent = event.loaded;
+    renderUploads();
+  };
+  xhr.onload = () => {
+    let reply = {};
+    try {
+      reply = JSON.parse(xhr.responseText);
+    } catch {
+      // No JSON body: the status code says enough.
+    }
+    if (xhr.status === 200) {
+      Object.assign(item, { status: "done", savedAs: reply.name });
+      addLog("file");
+      logEntries[logEntries.length - 1].name = reply.name;
+      renderLog();
+    } else {
+      Object.assign(item, { status: "failed", error: t(reply.error || "pairFailed") });
+    }
+  };
+  xhr.onerror = () => Object.assign(item, { status: "failed", error: t("disconnected") });
+  xhr.onabort = () => { item.status = "cancelled"; };
+  xhr.onloadend = () => {
+    item.xhr = null;
+    uploading = false;
+    renderUploads();
+    nextUpload();
+  };
+  renderUploads();
+  xhr.send(item.file);
+}
+
+function bindFiles() {
+  const drop = $("drop");
+  $("choose-files").addEventListener("click", () => $("file-input").click());
+  $("file-input").addEventListener("change", () => {
+    addFiles($("file-input").files);
+    $("file-input").value = "";
+  });
+  for (const type of ["dragenter", "dragover"]) {
+    drop.addEventListener(type, (event) => {
+      event.preventDefault();
+      drop.classList.add("over");
+    });
+  }
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (event) => {
+    event.preventDefault();
+    drop.classList.remove("over");
+    if (state.session) addFiles(event.dataTransfer.files);
+  });
+  $("uploads-clear").addEventListener("click", () => {
+    for (let i = uploads.length - 1; i >= 0; i -= 1) {
+      if (uploads[i].status !== "waiting" && uploads[i].status !== "sending") uploads.splice(i, 1);
+    }
+    renderUploads();
   });
 }
 
@@ -1273,6 +1444,8 @@ function bind() {
   $("tab-live").addEventListener("click", () => selectTab("live"));
   $("tab-media").addEventListener("click", () => selectTab("media"));
   $("tab-pad").addEventListener("click", () => selectTab("pad"));
+  $("tab-files").addEventListener("click", () => selectTab("files"));
+  bindFiles();
   $("sensitivity").value = String(store.get("sensitivity", 1));
   $("sensitivity").addEventListener("change", () => store.set("sensitivity", Number($("sensitivity").value)));
   bindPad();
@@ -1306,5 +1479,5 @@ $("live").value = "";
 bind();
 updateTextMask();
 applyLanguage();
-selectTab(["text", "live", "media", "pad"].includes(store.get("tab", "text")) ? store.get("tab", "text") : "text");
+selectTab(["text", "live", "media", "pad", "files"].includes(store.get("tab", "text")) ? store.get("tab", "text") : "text");
 start();

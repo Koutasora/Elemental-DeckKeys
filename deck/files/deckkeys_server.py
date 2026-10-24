@@ -19,12 +19,13 @@ def main():
     parser.add_argument("--port", type=int, default=8443)
     parser.add_argument("--pair", action="store_true")
     parser.add_argument("--data-dir", default=os.path.join(HERE, "data"))
+    parser.add_argument("--user", default="deck", help="owner of the transfers folder")
     args = parser.parse_args()
 
     if os.geteuid() != 0:
         sys.exit("Run as root (sudo).")
 
-    server = Server(args.data_dir, os.path.join(HERE, "deckkeys", "web"), args.port)
+    server = Server(args.data_dir, os.path.join(HERE, "deckkeys", "web"), args.port, args.user)
     asyncio.run(server.run(args.pair))
 
 

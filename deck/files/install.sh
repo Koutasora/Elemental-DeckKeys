@@ -54,7 +54,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/python3 $dest/deckkeys_server.py
+ExecStart=/usr/bin/python3 $dest/deckkeys_server.py --user $user
 Restart=on-failure
 RestartSec=3
 

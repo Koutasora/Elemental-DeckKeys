@@ -157,6 +157,15 @@ textarea {
   border-bottom: 1px solid var(--border);
 }
 
+.tab-list {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-list::-webkit-scrollbar { display: none; }
+
 .tabs button {
   border: 0;
   border-bottom: 3px solid transparent;
@@ -268,6 +277,39 @@ kbd {
   .pad { height: 160px; }
 }
 
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.drop p { margin: 0; }
+.drop.over { border: 2px solid var(--accent); color: var(--text); }
+.drop.off { opacity: 0.6; }
+
+.uploads { list-style: none; padding: 0; margin: 0; }
+
+.uploads li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.uploads .name { overflow-wrap: anywhere; }
+.uploads .info { grid-column: 1; color: var(--muted); font-size: 14px; }
+.uploads .info.error { color: var(--danger); }
+.uploads progress { grid-column: 1 / -1; width: 100%; }
+.uploads button { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+
 .log { margin: 20px 0; }
 
 .log summary {
@@ -350,8 +392,8 @@ progress { flex: 1; min-width: 120px; accent-color: var(--accent); }
 @media (max-width: 520px) {
   .bar { flex-wrap: wrap; }
   .status { order: 3; flex-basis: 100%; }
-  .tabs { gap: 0; }
-  .tabs button { padding-left: 9px; padding-right: 9px; }
+  .tab-list { flex-basis: 100%; gap: 0; }
+  .tabs button { padding-left: 9px; padding-right: 9px; flex: none; }
   .tabs .spacer { display: none; }
   .tabs .check { order: 2; flex-basis: 100%; padding: 8px 0; }
 }

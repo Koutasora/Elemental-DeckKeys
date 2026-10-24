@@ -51,11 +51,14 @@
       <span id="session-info" class="hint"></span>
     </div>
 
-    <div class="tabs" role="tablist">
+    <div class="tabs">
+      <div class="tab-list" role="tablist">
       <button id="tab-text" type="button" role="tab" data-i18n="tabText"></button>
       <button id="tab-live" type="button" role="tab" data-i18n="tabLive"></button>
       <button id="tab-media" type="button" role="tab" data-i18n="tabMedia"></button>
       <button id="tab-pad" type="button" role="tab" data-i18n="tabPad"></button>
+      <button id="tab-files" type="button" role="tab" data-i18n="tabFiles"></button>
+      </div>
       <span class="spacer"></span>
       <label class="check"><input type="checkbox" id="hide-typed"> <span data-i18n="hideTyped"></span></label>
     </div>
@@ -105,6 +108,20 @@
         <button type="button" data-mouse="right" data-i18n="mouseRight"></button>
         <button type="button" id="pad-esc">Esc</button>
       </div>
+    </div>
+
+    <div id="panel-files" hidden>
+      <div id="drop" class="drop">
+        <p data-i18n="dropHint"></p>
+        <button id="choose-files" type="button" class="primary" data-i18n="chooseFiles"></button>
+        <input id="file-input" type="file" multiple hidden>
+      </div>
+      <p class="hint" data-i18n="filesFolder"></p>
+      <div class="row" id="uploads-head" hidden>
+        <span class="spacer"></span>
+        <button id="uploads-clear" type="button" data-i18n="clearList"></button>
+      </div>
+      <ul id="uploads" class="uploads"></ul>
     </div>
 
     <div id="progress" class="row" hidden>

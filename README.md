@@ -49,6 +49,7 @@ On the PC:
   you typed (not what is on the Deck). The Log lists every action; click a line to copy its text.
 - The **Touchpad** tab moves the Deck cursor: with the PC mouse (Esc gives it back) or with a
   finger on a phone.
+- The **Files** tab sends files to `Downloads/DeckKeysTransfers` on the Deck.
 - The **Media** tab has media keys: previous, play/pause, next, stop, volume and mute.
 - The session ends with **End session**, by closing the tab or after 10 minutes without typing
   (5–30 minutes in Settings).

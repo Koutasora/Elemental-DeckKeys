@@ -20,6 +20,13 @@ interface Device {
   connected: boolean;
 }
 
+interface Received {
+  name: string;
+  size: number;
+  device: string;
+  time: number;
+}
+
 interface Status {
   running: boolean;
   on?: boolean;
@@ -32,12 +39,15 @@ interface Status {
   fingerprint?: string;
   pairing?: { code: string | null; seconds: number };
   devices?: Device[];
+  received?: Received[];
+  transfers_folder?: string;
 }
 
 const getStatus = callable<[], Status>("get_status");
 const toggle = callable<[], Status>("toggle");
 const pair = callable<[], Status>("pair");
 const removeDevice = callable<[deviceId: string], Status>("remove_device");
+const clearReceived = callable<[], Status>("clear_received");
 
 const TEXT = {
   en: {
@@ -60,6 +70,10 @@ const TEXT = {
     remove: "Remove",
     removeTitle: "Remove {name}?",
     removeText: "This browser will have to pair again.",
+    received: "Received files",
+    noReceived: "Nothing received yet.",
+    clearList: "Clear list",
+    from: "from {device}",
   },
   pl: {
     notRunning: "Elemental DeckKeys nie działa. Zainstaluj go ponownie ze strony na GitHubie.",
@@ -81,6 +95,10 @@ const TEXT = {
     remove: "Usuń",
     removeTitle: "Usunąć {name}?",
     removeText: "Ta przeglądarka będzie musiała sparować się ponownie.",
+    received: "Odebrane pliki",
+    noReceived: "Jeszcze nic nie odebrano.",
+    clearList: "Wyczyść listę",
+    from: "od {device}",
   },
 };
 
@@ -103,6 +121,17 @@ function DeviceName({ kind, name }: { kind?: string | null; name: string }) {
       {name}
     </span>
   );
+}
+
+function formatSize(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${unit ? value.toFixed(1) : value} ${units[unit]}`;
 }
 
 function formatTime(seconds: number): string {
@@ -215,6 +244,34 @@ function Content() {
               {t("pairButton")}
             </ButtonItem>
           </PanelSectionRow>
+        )}
+      </PanelSection>
+
+      <PanelSection title={t("received")}>
+        {(status.received ?? []).length === 0 ? (
+          <PanelSectionRow>
+            <Field description={`${t("noReceived")}
+${status.transfers_folder ?? ""}`} />
+          </PanelSectionRow>
+        ) : (
+          <>
+            {(status.received ?? []).map((file) => (
+              <PanelSectionRow key={`${file.time}-${file.name}`}>
+                <Field
+                  label={file.name}
+                  description={`${formatSize(file.size)} · ${t("from", { device: file.device })}`}
+                />
+              </PanelSectionRow>
+            ))}
+            <PanelSectionRow>
+              <Field description={status.transfers_folder} />
+            </PanelSectionRow>
+            <PanelSectionRow>
+              <ButtonItem layout="below" onClick={async () => setStatus(await clearReceived())}>
+                {t("clearList")}
+              </ButtonItem>
+            </PanelSectionRow>
+          </>
         )}
       </PanelSection>
 

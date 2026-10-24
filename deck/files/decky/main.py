@@ -44,6 +44,9 @@ class Plugin:
         await _request("/api/local/pair", "POST")
         return await self.get_status()
 
+    async def clear_received(self):
+        return await _request("/api/local/received/clear", "POST")
+
     async def remove_device(self, device_id: str):
         return await _request("/api/local/devices/remove", "POST", {"id": device_id})
 

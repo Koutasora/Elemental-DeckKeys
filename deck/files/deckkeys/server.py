@@ -11,11 +11,13 @@ import ssl
 import threading
 import time
 from http.cookies import CookieError, SimpleCookie
+from urllib.parse import parse_qs
 
 from . import __version__, certs, qr
 from .keyboard import (BROWSER_CODES, BUTTONS, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard,
                        VirtualMouse)
 from .pairing import CODE_LIFETIME, KINDS, DeviceStore, Pairing
+from .transfers import Transfers
 from .websocket import WebSocket, accept_key
 
 COOKIE = "deckkeys"
@@ -35,15 +37,18 @@ STATIC = {
     "/app.css": ("app.css", "text/css; charset=utf-8"),
 }
 STATUS_TEXT = {
-    101: "Switching Protocols", 200: "OK", 301: "Moved Permanently", 400: "Bad Request", 401: "Unauthorized",
-    403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed", 413: "Payload Too Large",
+    101: "Switching Protocols", 200: "OK", 301: "Moved Permanently", 400: "Bad Request",
+    401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed",
+    411: "Length Required", 413: "Payload Too Large", 500: "Internal Server Error",
+    507: "Insufficient Storage",
 }
 HOST_RE = re.compile(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$|^\[[0-9A-Fa-f:.]+\](:\d{1,5})?$")
 
 
 class Request:
-    def __init__(self, method, path, headers, body):
+    def __init__(self, method, path, headers, body, query=""):
         self.peer = None
+        self.query = parse_qs(query)
         self.method = method
         self.path = path
         self.headers = headers
@@ -81,11 +86,14 @@ async def read_request(reader):
         if line:
             name, _, value = line.partition(":")
             headers[name.strip().lower()] = value.strip()
+    path, _, query = target.partition("?")
+    if method == "PUT" and path == "/api/files":
+        return Request(method, path, headers, b"", query)  # file bodies are streamed
     length = int(headers.get("content-length") or 0)
     if length < 0 or length > MAX_BODY:
         raise ValueError("body too large")
     body = await reader.readexactly(length) if length else b""
-    return Request(method, target.split("?", 1)[0], headers, body)
+    return Request(method, path, headers, body, query)
 
 
 def is_loopback(ip):
@@ -126,7 +134,7 @@ class Client:
 
 
 class Server:
-    def __init__(self, data_dir, web_dir, port):
+    def __init__(self, data_dir, web_dir, port, user="deck"):
         os.makedirs(data_dir, mode=0o700, exist_ok=True)
         self.settings_path = os.path.join(data_dir, "settings.json")
         self.enabled = self._load_settings().get("enabled", True)
@@ -135,6 +143,7 @@ class Server:
         self.devices = DeviceStore(os.path.join(data_dir, "devices.json"))
         self.pairing = Pairing()
         self.cert, self.key = certs.ensure_certificate(data_dir)
+        self.transfers = Transfers(user, data_dir)
         self.keyboard = None
         self.media = None
         self.mouse = None
@@ -301,6 +310,8 @@ class Server:
                 return await self._respond(writer, request, 401)
             url = self.phone_url()
             return await self._json(writer, request, 200, {"url": url, "svg": qr.svg(url)})
+        if path == "/api/files" and method == "PUT":
+            return await self._upload(request, reader, writer)
         if path == "/api/pair" and method == "POST":
             return await self._pair(request, writer)
         if path == "/api/forget" and method == "POST":
@@ -322,6 +333,9 @@ class Server:
                 "on": self.enabled, "devices": len(self.devices.devices),
             })
         if path == "/api/local/status" and method == "GET" and request.local():
+            return await self._json(writer, request, 200, self._local_status())
+        if path == "/api/local/received/clear" and method == "POST" and request.local():
+            self.transfers.clear_received()
             return await self._json(writer, request, 200, self._local_status())
         if path == "/api/local/devices/remove" and method == "POST" and request.local():
             try:
@@ -365,7 +379,57 @@ class Server:
             "devices": self._device_list(),
             "phone_url": self.phone_url(),
             "qr": qr.svg(self.phone_url()),
+            "transfers_folder": self.transfers.folder,
+            "received": self.transfers.received[:5],
         }
+
+    def _session_device(self, request):
+        """The device of this request, if it is the one with the active session."""
+        device_id = self.devices.find(request.cookie(COOKIE))
+        client = self.client
+        if device_id and client and client.device_id == device_id and client.session:
+            return device_id
+        return None
+
+    async def _upload(self, request, reader, writer):
+        """PUT /api/files?name=...: one file, streamed into the transfers folder."""
+        if not request.same_origin():
+            return await self._respond(writer, request, 403)
+        device_id = self._session_device(request)
+        if not device_id:
+            return await self._json(writer, request, 403, {"error": "no_session"})
+        try:
+            length = int(request.headers["content-length"])
+        except (KeyError, ValueError):
+            return await self._respond(writer, request, 411)
+        if length < 0:
+            return await self._respond(writer, request, 400)
+        try:
+            if length > self.transfers.free_space():
+                return await self._json(writer, request, 507, {"error": "no_space"})
+            part, out = self.transfers.open_part()
+        except OSError as e:
+            print(f"Cannot save files: {e}", flush=True)
+            return await self._json(writer, request, 500, {"error": "save_failed"})
+        try:
+            with out:
+                remaining = length
+                while remaining:
+                    chunk = await asyncio.wait_for(reader.read(min(1 << 20, remaining)), 60)
+                    if not chunk:
+                        raise ConnectionError("upload interrupted")
+                    await asyncio.to_thread(out.write, chunk)
+                    remaining -= len(chunk)
+                    if self.client:
+                        self.client.last_activity = time.monotonic()
+            device = self.devices.devices.get(device_id, {}).get("name", "")
+            name = self.transfers.finish(part, request.query.get("name", ["file"])[0],
+                                         length, device)
+        except BaseException:
+            self.transfers.discard(part)
+            raise
+        print(f"Received: {name} ({length} bytes)", flush=True)
+        await self._json(writer, request, 200, {"name": name, "size": length})
 
     async def _pair(self, request, writer):
         if not request.same_origin():

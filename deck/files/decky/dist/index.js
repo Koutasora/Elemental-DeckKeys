@@ -94,6 +94,7 @@ const getStatus = callable("get_status");
 const toggle = callable("toggle");
 const pair = callable("pair");
 const removeDevice = callable("remove_device");
+const clearReceived = callable("clear_received");
 const TEXT = {
     en: {
         notRunning: "Elemental DeckKeys is not running. Install it again from the GitHub page.",
@@ -115,6 +116,10 @@ const TEXT = {
         remove: "Remove",
         removeTitle: "Remove {name}?",
         removeText: "This browser will have to pair again.",
+        received: "Received files",
+        noReceived: "Nothing received yet.",
+        clearList: "Clear list",
+        from: "from {device}",
     },
     pl: {
         notRunning: "Elemental DeckKeys nie działa. Zainstaluj go ponownie ze strony na GitHubie.",
@@ -136,6 +141,10 @@ const TEXT = {
         remove: "Usuń",
         removeTitle: "Usunąć {name}?",
         removeText: "Ta przeglądarka będzie musiała sparować się ponownie.",
+        received: "Odebrane pliki",
+        noReceived: "Jeszcze nic nie odebrano.",
+        clearList: "Wyczyść listę",
+        from: "od {device}",
     },
 };
 function t(key, vars = {}) {
@@ -148,6 +157,16 @@ function KindIcon({ kind }) {
 }
 function DeviceName({ kind, name }) {
     return (SP_JSX.jsxs("span", { style: { display: "inline-flex", alignItems: "center" }, children: [SP_JSX.jsx(KindIcon, { kind: kind }), name] }));
+}
+function formatSize(bytes) {
+    const units = ["B", "KB", "MB", "GB"];
+    let value = bytes;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit += 1;
+    }
+    return `${unit ? value.toFixed(1) : value} ${units[unit]}`;
 }
 function formatTime(seconds) {
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -179,7 +198,8 @@ function Content() {
         DFL.showModal(SP_JSX.jsx(DFL.ConfirmModal, { strTitle: t("removeTitle", { name: device.name }), strDescription: t("removeText"), strOKButtonText: t("remove"), onOK: async () => setStatus(await removeDevice(device.id)) }));
     };
     return (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsxs(DFL.PanelSection, { children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ToggleField, { label: t("switchLabel"), description: status.on ? t("switchOn") : t("switchOff"), checked: !!status.on, onChange: async () => setStatus(await toggle()) }) }), status.on && (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { label: t("address"), description: status.addresses?.join("\n") }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { label: t("connected"), description: status.client ? (SP_JSX.jsxs("span", { children: [SP_JSX.jsx(DeviceName, { kind: status.client_kind, name: status.client }), status.session ? ` · ${t("sessionActive")}` : ""] })) : t("nobody") }) })] }))] }), SP_JSX.jsx(DFL.PanelSection, { title: t("pairing"), children: code ? (SP_JSX.jsxs(SP_JSX.Fragment, { children: [SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { label: t("code"), children: SP_JSX.jsx("span", { style: { fontSize: "24px", fontWeight: "bold", letterSpacing: "4px" }, children: code }) }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { description: `${t("validFor", { time: formatTime(status.pairing?.seconds ?? 0) })}\n`
-                                    + `${t("certificate")}: ${status.fingerprint}` }) }), status.qr && (SP_JSX.jsxs(DFL.PanelSectionRow, { children: [SP_JSX.jsx(DFL.Field, { description: `${t("scanHint")}\n${status.phone_url}` }), SP_JSX.jsx("div", { style: { display: "flex", justifyContent: "center", padding: "8px 0" }, children: SP_JSX.jsx("img", { src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(status.qr)}`, width: 180, height: 180, style: { borderRadius: "6px" } }) })] }))] })) : (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: async () => setStatus(await pair()), children: t("pairButton") }) })) }), SP_JSX.jsx(DFL.PanelSection, { title: t("devices"), children: devices.length === 0 ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { description: t("noDevices") }) })) : devices.map((device) => (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "inline", label: SP_JSX.jsx(DeviceName, { kind: device.kind, name: device.name }), onClick: () => confirmRemove(device), children: t("remove") }) }, device.id))) })] }));
+                                    + `${t("certificate")}: ${status.fingerprint}` }) }), status.qr && (SP_JSX.jsxs(DFL.PanelSectionRow, { children: [SP_JSX.jsx(DFL.Field, { description: `${t("scanHint")}\n${status.phone_url}` }), SP_JSX.jsx("div", { style: { display: "flex", justifyContent: "center", padding: "8px 0" }, children: SP_JSX.jsx("img", { src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(status.qr)}`, width: 180, height: 180, style: { borderRadius: "6px" } }) })] }))] })) : (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: async () => setStatus(await pair()), children: t("pairButton") }) })) }), SP_JSX.jsx(DFL.PanelSection, { title: t("received"), children: (status.received ?? []).length === 0 ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { description: `${t("noReceived")}
+${status.transfers_folder ?? ""}` }) })) : (SP_JSX.jsxs(SP_JSX.Fragment, { children: [(status.received ?? []).map((file) => (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { label: file.name, description: `${formatSize(file.size)} · ${t("from", { device: file.device })}` }) }, `${file.time}-${file.name}`))), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { description: status.transfers_folder }) }), SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "below", onClick: async () => setStatus(await clearReceived()), children: t("clearList") }) })] })) }), SP_JSX.jsx(DFL.PanelSection, { title: t("devices"), children: devices.length === 0 ? (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.Field, { description: t("noDevices") }) })) : devices.map((device) => (SP_JSX.jsx(DFL.PanelSectionRow, { children: SP_JSX.jsx(DFL.ButtonItem, { layout: "inline", label: SP_JSX.jsx(DeviceName, { kind: device.kind, name: device.name }), onClick: () => confirmRemove(device), children: t("remove") }) }, device.id))) })] }));
 }
 var index = definePlugin(() => ({
     name: "Elemental DeckKeys",

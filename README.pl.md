@@ -49,6 +49,7 @@ Na PC:
   tego, co wpisałeś (nie zawartość Decka). Log pokazuje każdą akcję; kliknięcie linii kopiuje jej tekst.
 - Zakładka **Touchpad** rusza kursorem Decka: myszą z PC (Esc oddaje kursor) albo palcem na
   telefonie.
+- Zakładka **Pliki** wysyła pliki do `Downloads/DeckKeysTransfers` na Decku.
 - Zakładka **Multimedia** ma klawisze multimedialne: poprzedni, odtwórz/pauza, następny, stop,
   głośność i wyciszenie.
 - Sesja kończy się przyciskiem **Zakończ sesję**, zamknięciem karty albo po 10 minutach bez pisania

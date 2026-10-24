@@ -80,6 +80,10 @@ address, so when the page is opened by IP and the IP changes, the device has to 
 - **Touchpad**: a virtual mouse. On a PC the page takes the mouse (pointer lock) until Esc;
   on a phone the box works like a laptop touchpad (tap = click, two fingers = scroll or right
   click). Left, middle and right buttons below. Sensitivity in Settings.
+- **Files**: drop or choose files to send them to `~/Downloads/DeckKeysTransfers` on the Deck.
+  Only during a session, streamed, never overwrites (`name (1).ext`), plain file names only,
+  owned by the Deck user, a failed upload leaves nothing behind. The Decky panel lists received
+  files and can clear the list. Deck → PC is a separate later step.
 - **Settings**: theme (light / dark / system), language (automatic by default: Polish for a Polish browser, otherwise English), typing speed, "Forget this device".
 - Status bar: connection, session, time until automatic switch-off.
 - Plain HTML/CSS/JS, no frameworks, no CDN.
