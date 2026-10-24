@@ -111,6 +111,11 @@ MACROS = {
     "ctrlt": ("LEFTCTRL", "T"), "f11": ("F11",), "super": ("LEFTMETA",),
 }
 
+# Media keys live on a second device, as on real keyboards: with them on the keyboard
+# device, Steam in Game Mode no longer treats it as a keyboard and keeps showing its own.
+MEDIA_CODES = frozenset(KEY[name] for name in (
+    "MUTE", "VOLUMEDOWN", "VOLUMEUP", "NEXTSONG", "PLAYPAUSE", "PREVIOUSSONG", "STOPCD"))
+
 MEDIA_KEYS = {
     "previous": KEY["PREVIOUSSONG"], "playpause": KEY["PLAYPAUSE"], "next": KEY["NEXTSONG"],
     "stop": KEY["STOPCD"], "volumedown": KEY["VOLUMEDOWN"], "mute": KEY["MUTE"],
@@ -120,12 +125,14 @@ MEDIA_KEYS = {
 
 class VirtualKeyboard:
     # USB by default: with a virtual bus Steam keeps showing its on-screen keyboard.
-    def __init__(self, name="Elemental DeckKeys", bus=BUS_USB):
+    def __init__(self, name="Elemental DeckKeys", bus=BUS_USB, keys=None):
+        if keys is None:
+            keys = [code for code in KEY.values() if code not in MEDIA_CODES]
         self._fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
         self._pressed = set()
         try:
             fcntl.ioctl(self._fd, UI_SET_EVBIT, EV_KEY)
-            for code in KEY.values():
+            for code in keys:
                 fcntl.ioctl(self._fd, UI_SET_KEYBIT, code)
             # struct uinput_setup: input_id (4 x u16), name[80], ff_effects_max (u32)
             setup = struct.pack("HHHH80sI", bus, 0x1209, 0xDECC, 1,

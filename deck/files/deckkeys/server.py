@@ -13,7 +13,7 @@ import time
 from http.cookies import CookieError, SimpleCookie
 
 from . import certs
-from .keyboard import BROWSER_CODES, MACROS, MEDIA_KEYS, VirtualKeyboard
+from .keyboard import BROWSER_CODES, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard
 from .pairing import CODE_LIFETIME, DeviceStore, Pairing
 from .websocket import WebSocket, accept_key
 
@@ -135,6 +135,7 @@ class Server:
         self.pairing = Pairing()
         self.cert, self.key = certs.ensure_certificate(data_dir)
         self.keyboard = None
+        self.media = None
         self.client = None
         self.last_paired = None
 
@@ -400,7 +401,8 @@ class Server:
         try:
             while not ws.closed:
                 try:
-                    timeout = (HEARTBEAT_TIMEOUT if self.keyboard.any_pressed
+                    held = self.keyboard.any_pressed or self.media.any_pressed
+                    timeout = (HEARTBEAT_TIMEOUT if held
                                else QUIET_HEARTBEAT_TIMEOUT)
                     message = await asyncio.wait_for(ws.recv(), timeout)
                 except asyncio.TimeoutError:
@@ -438,7 +440,7 @@ class Server:
         client.stop.set()
         if client.typing:
             await client.typing
-        self.keyboard.release_all()
+        self._release_all()
         was_active = client.session
         client.session = False
         if notify and was_active:
@@ -468,30 +470,31 @@ class Server:
             # Live mode: physical keys. Ignored while text is being typed.
             code = BROWSER_CODES.get(msg.get("code"))
             if client.session and not client.typing and code is not None:
-                self.keyboard.key(code, bool(msg.get("down")))
+                device = self.media if code in MEDIA_CODES else self.keyboard
+                device.key(code, bool(msg.get("down")))
                 client.last_activity = time.monotonic()
         elif kind == "chars":
             # Live mode on a phone: on-screen keyboards deliver characters, not keys.
             text = msg.get("text")
             if (client.session and not client.typing and isinstance(text, str)
                     and 0 < len(text) <= 200):
-                self.keyboard.release_all()
+                self._release_all()
                 await asyncio.to_thread(self.keyboard.type_text, text, 200)
                 client.last_activity = time.monotonic()
         elif kind == "media":
             code = MEDIA_KEYS.get(msg.get("key"))
             if client.session and not client.typing and code is not None:
-                self.keyboard.tap(code)
+                self.media.tap(code)
                 client.last_activity = time.monotonic()
         elif kind == "macro":
             names = MACROS.get(msg.get("key"))
             if client.session and not client.typing and names:
-                self.keyboard.release_all()
+                self._release_all()
                 await asyncio.to_thread(self.keyboard.combo, names)
                 client.last_activity = time.monotonic()
         elif kind == "release":
             if not client.typing:
-                self.keyboard.release_all()
+                self._release_all()
 
     async def _start_typing(self, client, msg):
         error = None
@@ -514,7 +517,7 @@ class Server:
         client.last_activity = time.monotonic()
         client.stop.clear()
         # Keys still held in live mode (e.g. Ctrl from Ctrl+V) would turn the text into shortcuts.
-        self.keyboard.release_all()
+        self._release_all()
         client.typing = asyncio.create_task(self._type(client, msg.get("id"), text, speed))
 
     async def _type(self, client, message_id, text, speed):
@@ -532,13 +535,17 @@ class Server:
         except OSError as e:
             print(f"Typing failed: {e}", flush=True)
         finally:
-            self.keyboard.release_all()
+            self._release_all()
             client.typing = None
         await client.ws.send(json.dumps({
             "t": "typed", "id": message_id, "skipped": "".join(sorted(set(skipped))),
             "stopped": client.stop.is_set(),
         }))
         await self._send_state(client)
+
+    def _release_all(self):
+        self.keyboard.release_all()
+        self.media.release_all()
 
     # --- Run ----------------------------------------------------------------
 
@@ -561,6 +568,7 @@ class Server:
 
         loop.set_exception_handler(quiet_errors)
         self.keyboard = VirtualKeyboard()
+        self.media = VirtualKeyboard("Elemental DeckKeys Media", keys=MEDIA_CODES)
         listening = asyncio.create_task(self._listen(certs.server_context(self.cert, self.key)))
         print("Elemental DeckKeys is running." if self.enabled
               else "Elemental DeckKeys is running, switched off.", flush=True)
@@ -584,4 +592,5 @@ class Server:
             if self.client:
                 await self._drop_client(self.client, "shutdown")
             self.keyboard.close()
+            self.media.close()
             print("Stopped.", flush=True)
