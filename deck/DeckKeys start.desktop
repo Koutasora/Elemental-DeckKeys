@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Elemental DeckKeys – Start
+Icon=input-keyboard
+Exec=konsole --hold -e sudo bash /home/deck/deckkeys/server.sh start
+Terminal=false

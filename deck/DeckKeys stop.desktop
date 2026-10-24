@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Elemental DeckKeys – Stop
+Icon=input-keyboard
+Exec=konsole --hold -e sudo bash /home/deck/deckkeys/server.sh stop
+Terminal=false

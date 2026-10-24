@@ -117,17 +117,25 @@ class VirtualKeyboard:
             time.sleep(delay)
             self.key(KEY["LEFTSHIFT"], False)
 
-    def type_text(self, text, chars_per_second=100):
-        """Types ASCII text. Returns characters that could not be typed."""
+    def type_text(self, text, chars_per_second=100, stop=None, progress=None):
+        """Types ASCII text. Returns characters that could not be typed.
+
+        stop: threading.Event that aborts typing; progress: callback(done, total).
+        """
         skipped = []
         interval = 1.0 / chars_per_second
-        for char in text:
+        total = len(text)
+        for done, char in enumerate(text, 1):
+            if stop is not None and stop.is_set():
+                break
             mapping = CHARS.get(char)
             if mapping is None:
                 skipped.append(char)
                 continue
             started = time.monotonic()
             self.tap(*mapping)
+            if progress is not None and (done % 20 == 0 or done == total):
+                progress(done, total)
             remaining = interval - (time.monotonic() - started)
             if remaining > 0:
                 time.sleep(remaining)

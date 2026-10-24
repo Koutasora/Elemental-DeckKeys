@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elemental DeckKeys</title>
+<link rel="stylesheet" href="app.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="bar">
+  <h1>Elemental DeckKeys</h1>
+  <span id="status" class="status"></span>
+  <button id="settings-btn" type="button" data-i18n="settings"></button>
+</header>
+
+<main>
+  <section id="view-loading">
+    <p class="hint" data-i18n="connecting"></p>
+  </section>
+
+  <section id="view-pair" hidden>
+    <h2 data-i18n="pairTitle"></h2>
+    <p class="hint" data-i18n="pairHint"></p>
+    <form id="pair-form" class="form">
+      <label>
+        <span data-i18n="pairCode"></span>
+        <input id="pair-code" inputmode="numeric" autocomplete="off" maxlength="6" required>
+      </label>
+      <label>
+        <span data-i18n="deviceName"></span>
+        <input id="pair-name" maxlength="40" required>
+      </label>
+      <div><button type="submit" class="primary" data-i18n="pairButton"></button></div>
+      <p id="pair-error" class="error" hidden></p>
+    </form>
+  </section>
+
+  <section id="view-main" hidden>
+    <div class="row">
+      <button id="session-btn" type="button" class="primary"></button>
+      <span id="session-info" class="hint"></span>
+    </div>
+
+    <textarea id="text" rows="7" spellcheck="false" autocomplete="off" autocapitalize="off"
+              data-i18n-label="textLabel"></textarea>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="enter"> <span data-i18n="enterAtEnd"></span></label>
+      <span class="spacer"></span>
+      <button id="save-btn" type="button" data-i18n="save"></button>
+      <button id="send-btn" type="button" class="primary" data-i18n="send"></button>
+    </div>
+    <p class="hint" data-i18n="sendHint"></p>
+
+    <div id="progress" class="row" hidden>
+      <progress id="progress-bar" max="1" value="0"></progress>
+      <span id="progress-text" class="hint"></span>
+      <button id="stop-btn" type="button" data-i18n="stop"></button>
+    </div>
+    <p id="message" class="message" hidden></p>
+
+    <h2 data-i18n="saved"></h2>
+    <p id="saved-empty" class="hint" data-i18n="savedEmpty"></p>
+    <ul id="saved" class="saved"></ul>
+  </section>
+
+  <section id="view-settings" hidden>
+    <h2 data-i18n="settings"></h2>
+    <div class="form">
+      <label>
+        <span data-i18n="theme"></span>
+        <select id="theme">
+          <option value="system" data-i18n="themeSystem"></option>
+          <option value="light" data-i18n="themeLight"></option>
+          <option value="dark" data-i18n="themeDark"></option>
+        </select>
+      </label>
+      <label>
+        <span data-i18n="language"></span>
+        <select id="language">
+          <option value="auto" data-i18n="languageAuto"></option>
+          <option value="en">English</option>
+          <option value="pl">Polski</option>
+        </select>
+      </label>
+      <label>
+        <span data-i18n="speed"></span>
+        <select id="speed">
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="400">400</option>
+        </select>
+      </label>
+      <div class="row">
+        <button id="forget-btn" type="button" class="danger" data-i18n="forget"></button>
+        <span class="spacer"></span>
+        <button id="settings-close" type="button" class="primary" data-i18n="close"></button>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>
