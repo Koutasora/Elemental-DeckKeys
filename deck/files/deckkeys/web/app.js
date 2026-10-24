@@ -1073,6 +1073,8 @@ function renderUploads() {
     info.textContent = texts[item.status];
     info.classList.toggle("error", item.status === "failed");
     li.append(name, info);
+    item.info = info;
+    item.bar = null;
     if (item.status === "waiting" || item.status === "sending") {
       const cancel = document.createElement("button");
       cancel.type = "button";
@@ -1089,6 +1091,7 @@ function renderUploads() {
       bar.max = item.file.size || 1;
       bar.value = item.sent;
       li.append(bar);
+      item.bar = bar;
     }
     list.append(li);
   }
@@ -1116,9 +1119,15 @@ function nextUpload() {
   const xhr = new XMLHttpRequest();
   item.xhr = xhr;
   xhr.open("PUT", `/api/files?name=${encodeURIComponent(item.file.name)}`);
+  // Progress only updates the bar and its text: rebuilding the list several times a second
+  // would replace the Cancel button between press and release, so clicks would be lost.
   xhr.upload.onprogress = (event) => {
     item.sent = event.loaded;
-    renderUploads();
+    if (!item.bar) return;
+    item.bar.value = item.sent;
+    item.info.textContent = t("uploadSending", {
+      sent: formatSize(item.sent), size: formatSize(item.file.size),
+    });
   };
   xhr.onload = () => {
     let reply = {};
