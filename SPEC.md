@@ -113,9 +113,13 @@ On the PC it is opened from a bookmark or a `msedge --app=https://steamdeck.loca
 
 0. Virtual keyboard test in Game Mode and Desktop Mode – done.
 1. Service + WebUI text mode (HTTPS, pairing, session) – done.
-2. Live mode – done, testing on the Deck.
-3. Installer and main switch in the application menu – done. Local panel page – later, if needed.
-4. Decky panel.
+2. Live mode – done.
+3. Installer and main switch in the application menu – done. Local panel page – not needed.
+4. Decky panel – done (optional in the installer).
+5. Media keys, macros, touchpad, file transfers both ways, phone layout – done.
+
+Next: GitHub releases instead of installing from `main`; the Decky Plugin Store after checking
+its rules.
 
 ## Verified (stage 0, 2026-10-24)
 

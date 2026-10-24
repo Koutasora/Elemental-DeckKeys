@@ -115,9 +115,13 @@ Na PC uruchamiane z zakładki albo skrótu `msedge --app=https://steamdeck.local
 
 0. Test wirtualnej klawiatury w trybie gry i pulpitu – zrobione.
 1. Usługa + WebUI w trybie tekstu (HTTPS, parowanie, sesja) – zrobione.
-2. Tryb na żywo – zrobione, w testach na Decku.
-3. Instalator i wyłącznik główny w menu aplikacji – zrobione. Strona panelu lokalnego – później, jeśli będzie potrzebna.
-4. Panel Decky.
+2. Tryb na żywo – zrobione.
+3. Instalator i wyłącznik główny w menu aplikacji – zrobione. Strona panelu lokalnego – niepotrzebna.
+4. Panel Decky – zrobione (opcjonalny w instalatorze).
+5. Klawisze multimedialne, makra, touchpad, pliki w obie strony, układ na telefon – zrobione.
+
+Dalej: wydania na GitHubie zamiast instalacji z `main`; Decky Plugin Store po sprawdzeniu
+jego zasad.
 
 ## Sprawdzone (etap 0, 2026-10-24)
 

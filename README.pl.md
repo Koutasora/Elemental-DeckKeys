@@ -2,63 +2,87 @@
 
 [English](README.md) | **Polski**
 
-Pisanie na Steam Decku klawiaturą z PC przez sieć lokalną. Otwierasz stronę w przeglądarce
-na PC i wysyłasz na Decka tekst albo klawisze na żywo – w trybie gry i w trybie pulpitu.
-Bez podpinania klawiatury, bez SSH, bez instalowania czegokolwiek na PC.
+Sterowanie Steam Deckiem z przeglądarki na PC albo telefonie, przez sieć lokalną:
+wysyłanie tekstu, klawiatura na żywo, kursor myszy, klawisze multimedialne i przesyłanie plików.
+Działa w trybie gry i w trybie pulpitu. Bez podpinania czegokolwiek, bez SSH, bez instalowania
+czegokolwiek na PC.
 
-## Stan
+## Co potrafi
 
-Wczesny etap. Tryb tekstu, tryb na żywo i wyłącznik działają; panel Decky jest
-jeszcze do zrobienia. Plan w [SPEC.pl.md](SPEC.pl.md).
+| Zakładka | Do czego |
+|---|---|
+| **Tekst** | Wpisz albo wklej tekst i wyślij go na Decka za jednym razem, opcjonalnie z Enterem. Zapisuj często używane fragmenty, np. opcje uruchamiania. |
+| **Na żywo** | Klawiatura pisze na Decku w trakcie naciskania klawiszy. Ctrl+V wpisuje schowek z PC. Makra na skróty, które przeglądarka zatrzymuje dla siebie (Alt+F4, Alt+Tab, Ctrl+W, Ctrl+T, Ctrl+A, F11, Super). |
+| **Multimedia** | Odtwórz/pauza, poprzedni, następny, stop, głośność i wyciszenie. |
+| **Touchpad** | Na PC strona przejmuje mysz (i, jeśli chcesz, klawiaturę) do wciśnięcia Esc. Na telefonie pole działa jak touchpad w laptopie. |
+| **Pliki** | Wysyłanie plików do `Downloads/DeckKeysTransfers/Received` na Decku. Pobieranie tego, co wrzucisz do `Downloads/DeckKeysTransfers/Send to PC` (z „Zapisz jako…” w Chrome i Edge). |
+
+Do tego: log wysłanych rzeczy (kliknięcie linii ją kopiuje), „Ukryj wpisywany tekst” dla haseł,
+jasny i ciemny motyw, angielski i polski oraz układ na telefon w pionie i w poziomie.
 
 ## Instalacja
 
-1. Skopiuj folder `deck` w dowolne miejsce na Decku (jest w nim tylko instalator i folder `files`).
-2. W trybie pulpitu kliknij dwa razy `Install Elemental DeckKeys.desktop` i podaj hasło `sudo`.
-   Od teraz usługa startuje razem z Deckiem, w trybie gry i pulpitu.
-   Jeśli żadna przeglądarka nie jest sparowana, instalator od razu pokaże kod parowania.
-   Gdy jest Decky Loader, zapyta, czy dodać panel do trybu gry (domyślnie nie).
-   Skopiowany folder można potem usunąć.
-
-Albo w Konsole na Decku pobierz i zainstaluj najnowszą wersję jednym poleceniem
-(to samo polecenie aktualizuje istniejącą instalację, sparowanie zostaje):
+W Konsole na Decku (albo wyślij tę linię z innego urządzenia, gdy DeckKeys już działa):
 
 ```
 curl -L https://github.com/Koutasora/Elemental-DeckKeys/archive/refs/heads/main.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys-main/deck/files/install.sh
 ```
 
-## Parowanie przeglądarki
+Albo skopiuj folder `deck` na Decka i kliknij dwa razy `Install Elemental DeckKeys.desktop`
+w Dolphinie. W obu przypadkach raz podajesz hasło `sudo`.
 
-1. Na Decku: menu aplikacji > **Elemental DeckKeys – Pair** (bez hasła).
-   Pokaże adres i 6-cyfrowy kod ważny 2 minuty.
-2. Na PC otwórz `https://steamdeck.local:8443`, raz zaakceptuj ostrzeżenie o certyfikacie
-   i wpisz kod.
+- Od tej chwili usługa startuje razem z Deckiem, w trybie gry i pulpitu.
+- Jeśli żadna przeglądarka nie jest sparowana, instalator od razu pokaże kod parowania.
+- Gdy jest Decky Loader, instalator zapyta, czy dodać panel do trybu gry (domyślnie nie).
+- To samo polecenie uruchomione ponownie aktualizuje DeckKeys. Sparowanie zostaje, a otwarte
+  strony same się przeładowują.
+
+## Parowanie przeglądarki albo telefonu
+
+1. Na Decku: panel Decky > **Sparuj nową przeglądarkę** albo menu aplikacji >
+   **Elemental DeckKeys – Pair** (bez hasła). Pokaże adres, 6-cyfrowy kod ważny 2 minuty
+   i kod QR z adresem dla telefonów.
+2. Otwórz `https://steamdeck.local:8443` (na telefonie użyj pokazanego adresu IP albo zeskanuj QR).
+   Raz zaakceptuj ostrzeżenie o certyfikacie: Deck wystawia go sam.
+3. Wpisz kod i wybierz urządzenie: PC, Mac, Telefon albo Inne.
 
 ## Używanie
 
-Menu aplikacji na Decku (bez hasła):
+1. **Rozpocznij sesję.** Przycisk jest zielony, gdy można zacząć, niebieski w trakcie sesji
+   i czerwony przy braku połączenia. Wirtualna klawiatura i mysz istnieją tylko w trakcie sesji.
+2. Wybierz zakładkę i działaj. W trybie gry wybieraj pola tekstowe strzałkami i Enterem:
+   dotknięcie pola otwiera klawiaturę ekranową Steama.
+3. Sesja kończy się przyciskiem **Zakończ sesję**, zamknięciem strony albo po 10 minutach
+   bez pisania (od 5 do 30 minut w Ustawieniach).
 
-- **Elemental DeckKeys – Pair** – kod parowania dla nowej przeglądarki.
-- **Elemental DeckKeys – On/Off** – wyłącznik główny. Wyłączony: nic nie połączy się z sieci.
+Na Decku, bez hasła:
 
-Na PC:
+- **Panel Decky** (tryb gry): włącznik, kto jest połączony, parowanie z kodem QR,
+  sparowane przeglądarki, odebrane pliki.
+- **Menu aplikacji** (tryb pulpitu): Elemental DeckKeys – Pair, On/Off, Uninstall.
 
-- **Rozpocznij sesję**, potem zakładka **Tekst** (wpisz lub wklej, Wyślij) albo **Na żywo**
-  (kliknij w pole i pisz).
-- W zakładce Na żywo Ctrl+V i Ctrl+Shift+V wpisują na Decku schowek z PC. Pole pokazuje podgląd
-  tego, co wpisałeś (nie zawartość Decka). Log pokazuje każdą akcję; kliknięcie linii kopiuje jej tekst.
-- Zakładka **Touchpad** rusza kursorem Decka: myszą z PC (Esc oddaje kursor) albo palcem na
-  telefonie.
-- Zakładka **Pliki** wysyła pliki do `Downloads/DeckKeysTransfers/Received` na Decku i pobiera te,
-  które wrzucisz do `Downloads/DeckKeysTransfers/Send to PC`.
-- Zakładka **Multimedia** ma klawisze multimedialne: poprzedni, odtwórz/pauza, następny, stop,
-  głośność i wyciszenie.
-- Sesja kończy się przyciskiem **Zakończ sesję**, zamknięciem karty albo po 10 minutach bez pisania
-  (5–30 minut w Ustawieniach).
+## Bezpieczeństwo
+
+- Tylko sieć lokalna. Połączenie szyfrowane (HTTPS z własnym certyfikatem Decka).
+- Przeglądarka połączy się dopiero po sparowaniu kodem z Decka. Deck przechowuje tylko skrót
+  klucza każdej przeglądarki; sparowane przeglądarki można usunąć w panelu Decky.
+- Klawisze, mysz i pliki działają tylko w trakcie sesji rozpoczętej z tej przeglądarki.
+- Usługa potrafi naciskać klawisze, ruszać myszą oraz czytać i zapisywać pliki wyłącznie
+  w `Downloads/DeckKeysTransfers`. Nigdy nie uruchamia poleceń.
+- Wyłączona (panel Decky albo menu aplikacji): nic z sieci nie może się połączyć.
 
 ## Odinstalowanie
 
 Menu aplikacji > **Elemental DeckKeys – Uninstall** (pyta o hasło `sudo`).
+Usuwa usługę, panel, certyfikat i sparowane przeglądarki. Pliki w
+`Downloads/DeckKeysTransfers` zostają.
+
+## Dla programistów
+
+- `deck/` – to, co trafia na Decka: instalator i `files/` (Python, tylko biblioteka standardowa).
+- `decky-plugin/` – źródła panelu Decky. `npm install` i `npm run build` w tym folderze budują go
+  do `deck/files/decky/`.
+- [SPEC.pl.md](SPEC.pl.md) – jak to działa i dlaczego.
 
 ## Licencja
 
