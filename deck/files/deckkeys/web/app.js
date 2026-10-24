@@ -347,6 +347,7 @@ let textMasked = false;
 const logEntries = [];
 let lastAction = "";
 let sessionEnded = false;
+let hideTyped = store.get("hideTyped", false);
 let actionTimer = null;
 const state = { connected: false, session: false, remaining: 0, typing: false };
 const me = { name: "", kind: "other" };
@@ -456,7 +457,7 @@ function render() {
 // --- Live preview, action and log ----------------------------------------
 
 function hidden() {
-  return $("hide-typed").checked;
+  return hideTyped;
 }
 
 function updateTextMask() {
@@ -1542,12 +1543,18 @@ function bind() {
   $("speed").addEventListener("change", () => store.set("speed", Number($("speed").value)));
   $("forget-btn").addEventListener("click", forget);
 
-  $("hide-typed").checked = store.get("hideTyped", false);
-  $("hide-typed").addEventListener("change", () => {
-    store.set("hideTyped", $("hide-typed").checked);
-    updateTextMask();
-    renderPreview();
-    renderLog();
+  // One setting, shown next to every place where text is typed.
+  const hideBoxes = document.querySelectorAll(".hide-typed");
+  hideBoxes.forEach((box) => {
+    box.checked = hideTyped;
+    box.addEventListener("change", () => {
+      hideTyped = box.checked;
+      store.set("hideTyped", hideTyped);
+      hideBoxes.forEach((other) => { other.checked = box.checked; });
+      updateTextMask();
+      renderPreview();
+      renderLog();
+    });
   });
   $("preview-clear").addEventListener("click", () => {
     clearPreview();
