@@ -28,8 +28,17 @@
         <input id="pair-code" inputmode="numeric" autocomplete="off" maxlength="6" required>
       </label>
       <label>
+        <span data-i18n="deviceKind"></span>
+        <select id="pair-kind">
+          <option value="pc" data-i18n="kindPc"></option>
+          <option value="mac" data-i18n="kindMac"></option>
+          <option value="phone" data-i18n="kindPhone"></option>
+          <option value="other" data-i18n="kindOther"></option>
+        </select>
+      </label>
+      <label id="pair-name-row" hidden>
         <span data-i18n="deviceName"></span>
-        <input id="pair-name" maxlength="40" required>
+        <input id="pair-name" maxlength="40">
       </label>
       <div><button type="submit" class="primary" data-i18n="pairButton"></button></div>
       <p id="pair-error" class="error" hidden></p>
@@ -110,6 +119,7 @@
       <div class="macros">
         <button type="button" data-macro="altf4">Alt+F4</button>
         <button type="button" data-macro="alttab">Alt+Tab</button>
+        <button type="button" data-macro="ctrla">Ctrl+A</button>
         <button type="button" data-macro="ctrlw">Ctrl+W</button>
         <button type="button" data-macro="ctrlt">Ctrl+T</button>
         <button type="button" data-macro="f11">F11</button>
@@ -175,6 +185,16 @@
           <option value="400">400</option>
         </select>
       </label>
+      <div>
+        <h2 data-i18n="pairedDevices"></h2>
+        <ul id="devices" class="devices"></ul>
+      </div>
+      <div>
+        <h2 data-i18n="openOnPhone"></h2>
+        <p class="hint" data-i18n="openOnPhoneHint"></p>
+        <img id="qr" class="qr" alt="">
+        <p id="qr-url" class="hint"></p>
+      </div>
       <div class="row">
         <button id="forget-btn" type="button" class="danger" data-i18n="forget"></button>
         <span class="spacer"></span>

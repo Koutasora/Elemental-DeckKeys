@@ -5,6 +5,7 @@ const I18N = {
     settings: "Settings",
     connecting: "Connecting to the Deck…",
     connected: "Connected",
+    connectedAs: "Connected as",
     disconnected: "Not connected, retrying…",
     replaced: "Taken over by another window",
     sessionOn: "Session active",
@@ -13,6 +14,16 @@ const I18N = {
     pairHint: "Start pairing on the Deck and enter the 6-digit code shown there.",
     pairCode: "Code from the Deck",
     deviceName: "Device name",
+    deviceKind: "Device",
+    kindPc: "PC",
+    kindMac: "Mac",
+    kindPhone: "Phone",
+    kindOther: "Other (type a name)",
+    pairedDevices: "Paired devices",
+    thisDevice: "this device",
+    connectedNow: "connected",
+    openOnPhone: "Open on a phone",
+    openOnPhoneHint: "Scan to open this page. The pairing code is shown on the Deck.",
     pairButton: "Pair",
     wrong_code: "Wrong code.",
     pairing_closed: "Pairing is not open or the code expired. Start pairing on the Deck again.",
@@ -104,6 +115,7 @@ const I18N = {
     settings: "Ustawienia",
     connecting: "Łączenie z Deckiem…",
     connected: "Połączono",
+    connectedAs: "Połączono jako",
     disconnected: "Brak połączenia, ponawiam…",
     replaced: "Przejęte przez inne okno",
     sessionOn: "Sesja aktywna",
@@ -112,6 +124,16 @@ const I18N = {
     pairHint: "Włącz parowanie na Decku i wpisz 6-cyfrowy kod, który się tam pokaże.",
     pairCode: "Kod z Decka",
     deviceName: "Nazwa urządzenia",
+    deviceKind: "Urządzenie",
+    kindPc: "PC",
+    kindMac: "Mac",
+    kindPhone: "Telefon",
+    kindOther: "Inne (wpisz nazwę)",
+    pairedDevices: "Sparowane urządzenia",
+    thisDevice: "to urządzenie",
+    connectedNow: "połączone",
+    openOnPhone: "Otwórz na telefonie",
+    openOnPhoneHint: "Zeskanuj, aby otworzyć tę stronę. Kod parowania pokazuje Deck.",
     pairButton: "Paruj",
     wrong_code: "Zły kod.",
     pairing_closed: "Parowanie nie jest włączone albo kod wygasł. Włącz parowanie na Decku jeszcze raz.",
@@ -241,6 +263,7 @@ let lastAction = "";
 let sessionEnded = false;
 let actionTimer = null;
 const state = { connected: false, session: false, remaining: 0, typing: false };
+const me = { name: "", kind: "other" };
 
 function t(key, vars = {}) {
   const text = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
@@ -290,11 +313,24 @@ function formatTime(seconds) {
 }
 
 function render() {
-  let status = t("connecting");
-  if (replaced) status = t("replaced");
-  else if (state.connected) status = `${t("connected")} · ${state.session ? t("sessionOn") : t("sessionOff")}`;
-  else if (view === "main") status = t("disconnected");
-  $("status").textContent = view === "pair" ? "" : status;
+  const statusEl = $("status");
+  statusEl.replaceChildren();
+  if (view !== "pair") {
+    if (state.connected && !replaced && me.name) {
+      statusEl.append(`${t("connectedAs")} `);
+      const who = document.createElement("span");
+      who.className = "who";
+      who.innerHTML = icon(me.kind);
+      who.append(me.name);
+      statusEl.append(who, ` · ${state.session ? t("sessionOn") : t("sessionOff")}`);
+    } else {
+      let status = t("connecting");
+      if (replaced) status = t("replaced");
+      else if (state.connected) status = `${t("connected")} · ${state.session ? t("sessionOn") : t("sessionOff")}`;
+      else if (view === "main") status = t("disconnected");
+      statusEl.textContent = status;
+    }
+  }
 
   const sessionBtn = $("session-btn");
   if (replaced) {
@@ -346,8 +382,19 @@ function showAction(key) {
   render();
 }
 
+// Phones: on-screen keyboards edit whole words (autocorrect, re-selecting a word on
+// Backspace), so there the box holds the real text and each change is sent as a diff.
+const phoneTyping = window.matchMedia("(pointer: coarse)").matches;
+const phone = { value: "", caret: 0, masked: false };
+
 function renderPreview() {
   const live = $("live");
+  if (phoneTyping) {
+    if (live.value === "") phone.masked = false;
+    else if (hidden()) phone.masked = true;
+    live.classList.toggle("masked", hidden() || phone.masked);
+    return;
+  }
   live.value = [...preview.text]
     .map((ch, i) => (ch !== "\n" && (hidden() || preview.flags[i] === "1") ? "•" : ch))
     .join("");
@@ -357,6 +404,53 @@ function renderPreview() {
 
 function clearPreview() {
   Object.assign(preview, { text: "", flags: "", cursor: 0, all: false });
+  if (phoneTyping) {
+    $("live").value = "";
+    Object.assign(phone, { value: "", caret: 0, masked: false });
+  }
+}
+
+function tapRaw(code) {
+  send({ t: "key", code, down: true });
+  send({ t: "key", code, down: false });
+}
+
+function moveDeckCaret(from, to) {
+  const key = to > from ? "ArrowRight" : "ArrowLeft";
+  for (let i = 0; i < Math.abs(to - from); i += 1) tapRaw(key);
+}
+
+function phoneInput() {
+  const live = $("live");
+  const before = phone.value;
+  const after = live.value;
+  if (!liveActive() || state.typing) {
+    live.value = before;
+    return;
+  }
+  let start = 0;
+  while (start < before.length && start < after.length && before[start] === after[start]) start += 1;
+  let end = 0;
+  while (end < before.length - start && end < after.length - start
+         && before[before.length - 1 - end] === after[after.length - 1 - end]) end += 1;
+  const deleted = before.length - start - end;
+  const inserted = after.slice(start, after.length - end);
+  // The Deck cursor is where the box cursor was; move it to the end of the changed part.
+  moveDeckCaret(phone.caret, before.length - end);
+  for (let i = 0; i < deleted; i += 1) {
+    tapRaw("Backspace");
+    addLog("deleted");
+  }
+  if (inserted) {
+    send({ t: "chars", text: inserted });
+    addLog("typed", inserted);
+  }
+  showAction(inserted ? "actTyping" : "actDeleting");
+  // The Deck cursor now sits after the inserted text; follow the box cursor from there.
+  moveDeckCaret(start + inserted.length, live.selectionStart);
+  phone.value = after;
+  phone.caret = live.selectionStart;
+  renderPreview();
 }
 
 function previewInsert(text) {
@@ -498,20 +592,6 @@ function renderLog() {
   list.scrollTop = list.scrollHeight;
 }
 
-function sendChars(text) {
-  send({ t: "chars", text });
-  previewInsert(text);
-  addLog("typed", text);
-  showAction("actTyping");
-  renderPreview();
-}
-
-function tapKey(key) {
-  send({ t: "key", code: key, down: true });
-  send({ t: "key", code: key, down: false });
-  trackKey({ key, code: key, ctrlKey: false, metaKey: false });
-}
-
 function trackKey(event) {
   const { key, code } = event;
   if (event.ctrlKey || event.metaKey) {
@@ -577,7 +657,14 @@ function bindLive() {
   const live = $("live");
   live.addEventListener("keydown", (event) => {
     if (!liveActive()) return;
-    // Phone keyboards report "Unidentified"; their input is handled in "beforeinput".
+    if (phoneTyping) {
+      // Everything but Enter arrives as a change of the box (see phoneInput).
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      tapRaw("Enter");
+      addLog("enter");
+      return;
+    }
     if (event.key === "Unidentified" || event.keyCode === 229) return;
     // Ctrl+V / Ctrl+Shift+V: let the browser fire "paste" with the PC clipboard.
     if (event.ctrlKey && event.code === "KeyV") return;
@@ -594,6 +681,7 @@ function bindLive() {
     send({ t: "key", code: event.code, down: false });
   });
   live.addEventListener("paste", (event) => {
+    if (phoneTyping) return;  // the pasted text arrives as a change of the box
     event.preventDefault();
     if (!liveActive()) return;
     const text = event.clipboardData.getData("text/plain");
@@ -605,30 +693,14 @@ function bindLive() {
     addLog("pasted", text);
     showAction("actPasted");
   });
-  // Phone keyboards: characters, Backspace and Enter arrive as input events.
-  let composing = false;
-  live.addEventListener("beforeinput", (event) => {
-    if (!liveActive() || composing || state.typing) return;
-    if (event.inputType === "insertText" && event.data) {
-      event.preventDefault();
-      sendChars(event.data);
-    } else if (event.inputType === "deleteContentBackward") {
-      event.preventDefault();
-      tapKey("Backspace");
-    } else if (event.inputType === "insertLineBreak" || event.inputType === "insertParagraph") {
-      event.preventDefault();
-      tapKey("Enter");
-    }
-  });
-  live.addEventListener("compositionstart", () => { composing = true; });
-  live.addEventListener("compositionend", (event) => {
-    composing = false;
-    if (liveActive() && event.data) sendChars(event.data);
-    renderPreview();
-  });
-  // The box only mirrors what was sent; undo anything the browser changed itself.
-  live.addEventListener("input", () => {
-    if (!composing) renderPreview();
+  // PC: the box only mirrors what was sent; undo anything the browser changed itself.
+  live.addEventListener("input", () => (phoneTyping ? phoneInput() : renderPreview()));
+  // Phone: moving the cursor by touch moves it on the Deck too.
+  document.addEventListener("selectionchange", () => {
+    if (!phoneTyping || document.activeElement !== live || !liveActive()) return;
+    if (live.value !== phone.value || live.selectionStart !== live.selectionEnd) return;
+    moveDeckCaret(phone.caret, live.selectionStart);
+    phone.caret = live.selectionStart;
   });
   live.addEventListener("mouseup", renderPreview);
   live.addEventListener("focus", render);
@@ -690,7 +762,9 @@ function send(message) {
 
 async function fetchStatus() {
   const response = await fetch("/api/status", { cache: "no-store" });
-  return response.json();
+  const status = await response.json();
+  Object.assign(me, { name: status.name || "", kind: status.kind || "other" });
+  return status;
 }
 
 function connect() {
@@ -772,21 +846,81 @@ function sendText(text, fromField = false, withEnter = $("enter").checked, log =
 
 // --- Pairing and settings -------------------------------------------------
 
+const KIND_NAMES = { pc: "PC", mac: "Mac", phone: "Phone" };
+
+// Simple outline icons, drawn with the text color.
+const ICONS = {
+  pc: '<rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/>',
+  mac: '<rect x="5" y="5" width="14" height="10" rx="1"/><path d="M2 19h20l-2-4H4z"/>',
+  phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  other: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+};
+
+function icon(kind) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" '
+    + `stroke-linejoin="round" stroke-linecap="round">${ICONS[kind] || ICONS.other}</svg>`;
+}
+
+function guessKind() {
+  const ua = navigator.userAgent;
+  if (/Android|iPhone|iPad|Mobile/i.test(ua)) return "phone";
+  if (/Macintosh|Mac OS X/i.test(ua)) return "mac";
+  return "pc";
+}
+
+function updatePairName() {
+  $("pair-name-row").hidden = $("pair-kind").value !== "other";
+  $("pair-name").required = $("pair-kind").value === "other";
+}
+
+async function loadDevices() {
+  const list = $("devices");
+  try {
+    const [devices, code] = await Promise.all([
+      fetch("/api/devices", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/qr", { cache: "no-store" }).then((r) => r.json()),
+    ]);
+    list.replaceChildren();
+    for (const device of devices.devices) {
+      const li = document.createElement("li");
+      li.innerHTML = icon(device.kind);
+      const name = document.createElement("span");
+      name.textContent = device.name;
+      li.append(name);
+      const notes = [device.this && t("thisDevice"), device.connected && t("connectedNow")].filter(Boolean);
+      if (notes.length) {
+        const note = document.createElement("span");
+        note.className = "note";
+        note.textContent = `· ${notes.join(", ")}`;
+        li.append(note);
+      }
+      list.append(li);
+    }
+    $("qr").src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(code.svg)}`;
+    $("qr-url").textContent = code.url;
+  } catch {
+    // Not paired or not reachable: the lists stay empty.
+  }
+}
+
 async function pair(event) {
   event.preventDefault();
   const error = $("pair-error");
   error.hidden = true;
-  const name = $("pair-name").value.trim();
-  store.set("deviceName", name);
+  const kind = $("pair-kind").value;
+  const name = kind === "other" ? $("pair-name").value.trim() : KIND_NAMES[kind];
+  store.set("deviceKind", kind);
+  if (kind === "other") store.set("deviceName", name);
   try {
     const response = await fetch("/api/pair", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: $("pair-code").value.trim(), name }),
+      body: JSON.stringify({ code: $("pair-code").value.trim(), name, kind }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "pairFailed");
     $("pair-code").value = "";
+    Object.assign(me, { name, kind });
     show("main");
     connect();
   } catch (e) {
@@ -816,7 +950,10 @@ async function forget() {
 
 function bind() {
   $("pair-form").addEventListener("submit", pair);
-  $("pair-name").value = store.get("deviceName", "PC");
+  $("pair-kind").value = store.get("deviceKind", guessKind());
+  $("pair-name").value = store.get("deviceName", "");
+  $("pair-kind").addEventListener("change", updatePairName);
+  updatePairName();
 
   $("session-btn").addEventListener("click", () => {
     if (replaced) connect();
@@ -837,7 +974,10 @@ function bind() {
   $("clear").checked = store.get("clear", true);
   $("clear").addEventListener("change", () => store.set("clear", $("clear").checked));
 
-  $("settings-btn").addEventListener("click", () => show(view === "settings" ? previousView : "settings"));
+  $("settings-btn").addEventListener("click", () => {
+    if (view !== "settings") loadDevices();
+    show(view === "settings" ? previousView : "settings");
+  });
   $("settings-close").addEventListener("click", () => show(previousView));
   $("theme").value = store.get("theme", "system");
   $("theme").addEventListener("change", () => { store.set("theme", $("theme").value); applyTheme(); });

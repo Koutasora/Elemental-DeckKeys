@@ -9,6 +9,7 @@ import time
 
 CODE_LIFETIME = 120
 MAX_ATTEMPTS = 5
+KINDS = ("pc", "mac", "phone", "other")
 
 
 def hash_key(key):
@@ -16,7 +17,7 @@ def hash_key(key):
 
 
 class DeviceStore:
-    """devices.json: {device_id: {name, key_hash, created, last_seen}}"""
+    """devices.json: {device_id: {name, kind, key_hash, created, last_seen}}"""
 
     def __init__(self, path):
         self._path = path
@@ -32,13 +33,14 @@ class DeviceStore:
         os.chmod(tmp, 0o600)
         os.replace(tmp, self._path)
 
-    def add(self, name):
+    def add(self, name, kind="other"):
         """Creates a device and returns (device_id, key). Only the key hash is stored."""
         key = secrets.token_urlsafe(32)
         device_id = secrets.token_hex(8)
         now = int(time.time())
         self.devices[device_id] = {
-            "name": name, "key_hash": hash_key(key), "created": now, "last_seen": now,
+            "name": name, "kind": kind if kind in KINDS else "other",
+            "key_hash": hash_key(key), "created": now, "last_seen": now,
         }
         self._save()
         return device_id, key

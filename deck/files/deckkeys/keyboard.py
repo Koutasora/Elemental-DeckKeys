@@ -107,8 +107,9 @@ BROWSER_CODES = _build_browser_map()
 
 # Shortcuts the browser on the PC keeps for itself, sent from buttons instead.
 MACROS = {
-    "altf4": ("LEFTALT", "F4"), "alttab": ("LEFTALT", "TAB"), "ctrlw": ("LEFTCTRL", "W"),
-    "ctrlt": ("LEFTCTRL", "T"), "f11": ("F11",), "super": ("LEFTMETA",),
+    "altf4": ("LEFTALT", "F4"), "alttab": ("LEFTALT", "TAB"), "ctrla": ("LEFTCTRL", "A"),
+    "ctrlw": ("LEFTCTRL", "W"), "ctrlt": ("LEFTCTRL", "T"), "f11": ("F11",),
+    "super": ("LEFTMETA",),
 }
 
 # Media keys live on a second device, as on real keyboards: with them on the keyboard

@@ -10,18 +10,23 @@ import {
 } from "@decky/ui";
 import { callable, definePlugin } from "@decky/api";
 import { useEffect, useState } from "react";
-import { FaKeyboard } from "react-icons/fa";
+import { FaDesktop, FaGlobe, FaKeyboard, FaLaptop, FaMobileAlt } from "react-icons/fa";
 
 interface Device {
   id: string;
   name: string;
+  kind: string;
   last_seen: number;
+  connected: boolean;
 }
 
 interface Status {
   running: boolean;
   on?: boolean;
   client?: string | null;
+  client_kind?: string | null;
+  phone_url?: string;
+  qr?: string;
   session?: boolean;
   addresses?: string[];
   fingerprint?: string;
@@ -41,7 +46,8 @@ const TEXT = {
     switchOn: "Browsers on the local network can connect.",
     switchOff: "Nothing can connect.",
     address: "Address",
-    connected: "Connected",
+    connected: "Connected as",
+    scanHint: "Scan with a phone to open the page, then type the code there.",
     nobody: "Nobody",
     sessionActive: "session active",
     pairing: "Pairing",
@@ -61,7 +67,8 @@ const TEXT = {
     switchOn: "Przeglądarki w sieci lokalnej mogą się połączyć.",
     switchOff: "Nic nie może się połączyć.",
     address: "Adres",
-    connected: "Połączono",
+    connected: "Połączono jako",
+    scanHint: "Zeskanuj telefonem, aby otworzyć stronę, i wpisz tam kod.",
     nobody: "Nikt",
     sessionActive: "sesja aktywna",
     pairing: "Parowanie",
@@ -82,6 +89,20 @@ type Key = keyof typeof TEXT.en;
 function t(key: Key, vars: Record<string, string> = {}): string {
   const lang = navigator.language.toLowerCase().startsWith("pl") ? "pl" : "en";
   return TEXT[lang][key].replace(/\{(\w+)\}/g, (_, name: string) => vars[name] ?? "");
+}
+
+function KindIcon({ kind }: { kind?: string | null }) {
+  const Icon = { pc: FaDesktop, mac: FaLaptop, phone: FaMobileAlt }[kind ?? ""] ?? FaGlobe;
+  return <Icon style={{ marginRight: "8px", verticalAlign: "middle" }} />;
+}
+
+function DeviceName({ kind, name }: { kind?: string | null; name: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center" }}>
+      <KindIcon kind={kind} />
+      {name}
+    </span>
+  );
 }
 
 function formatTime(seconds: number): string {
@@ -148,9 +169,12 @@ function Content() {
             <PanelSectionRow>
               <Field
                 label={t("connected")}
-                description={status.client
-                  ? `${status.client}${status.session ? ` · ${t("sessionActive")}` : ""}`
-                  : t("nobody")}
+                description={status.client ? (
+                  <span>
+                    <DeviceName kind={status.client_kind} name={status.client} />
+                    {status.session ? ` · ${t("sessionActive")}` : ""}
+                  </span>
+                ) : t("nobody")}
               />
             </PanelSectionRow>
           </>
@@ -171,6 +195,19 @@ function Content() {
                   + `${t("certificate")}: ${status.fingerprint}`}
               />
             </PanelSectionRow>
+            {status.qr && (
+              <PanelSectionRow>
+                <Field description={`${t("scanHint")}\n${status.phone_url}`} />
+                <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+                  <img
+                    src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(status.qr)}`}
+                    width={180}
+                    height={180}
+                    style={{ borderRadius: "6px" }}
+                  />
+                </div>
+              </PanelSectionRow>
+            )}
           </>
         ) : (
           <PanelSectionRow>
@@ -188,7 +225,11 @@ function Content() {
           </PanelSectionRow>
         ) : devices.map((device) => (
           <PanelSectionRow key={device.id}>
-            <ButtonItem layout="inline" label={device.name} onClick={() => confirmRemove(device)}>
+            <ButtonItem
+              layout="inline"
+              label={<DeviceName kind={device.kind} name={device.name} />}
+              onClick={() => confirmRemove(device)}
+            >
               {t("remove")}
             </ButtonItem>
           </PanelSectionRow>

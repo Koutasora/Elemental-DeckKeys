@@ -54,7 +54,9 @@ the Deck releases all held keys.
 1. On the Deck, "Pair new device" (for now: application menu > Elemental DeckKeys – Pair,
    which asks the service over `127.0.0.1` with an `X-DeckKeys-Local` header): a 6-digit code, valid for 2 minutes, single use,
    invalidated after 5 wrong attempts.
-2. On the PC the page asks for the code and a device name.
+2. On the PC the page asks for the code and the device: PC, Mac, Phone (each with an icon) or
+   Other with a typed name and a generic icon. The code is always typed by a person; QR codes
+   (Decky panel, pairing window, Settings) hold only the page address with the IP.
 3. The Deck creates a random key (256 bits) and sets it as a `HttpOnly; Secure; SameSite=Strict` cookie.
    The Deck stores only the SHA-256 hash of the key.
 4. Both panels list paired devices with a "Remove" button (takes effect immediately).

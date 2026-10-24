@@ -12,9 +12,9 @@ import threading
 import time
 from http.cookies import CookieError, SimpleCookie
 
-from . import certs
+from . import certs, qr
 from .keyboard import BROWSER_CODES, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard
-from .pairing import CODE_LIFETIME, DeviceStore, Pairing
+from .pairing import CODE_LIFETIME, KINDS, DeviceStore, Pairing
 from .websocket import WebSocket, accept_key
 
 COOKIE = "deckkeys"
@@ -174,6 +174,7 @@ class Server:
             "X-Content-Type-Options: nosniff",
             "Referrer-Policy: no-referrer",
             f"Content-Security-Policy: default-src 'self'; connect-src {connect}; "
+            "img-src 'self' data:; "
             "frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
         ]
         if content_type:
@@ -282,10 +283,22 @@ class Server:
                 return await self._respond(writer, request, 200, f.read(), content_type)
         if path == "/api/status" and method == "GET":
             device_id = self.devices.find(request.cookie(COOKIE))
-            name = self.devices.devices[device_id]["name"] if device_id else None
+            device = self.devices.devices.get(device_id, {}) if device_id else {}
             return await self._json(writer, request, 200, {
-                "paired": device_id is not None, "name": name, "pairing": self.pairing.active,
+                "paired": device_id is not None, "name": device.get("name"),
+                "kind": device.get("kind", "other") if device_id else None,
+                "pairing": self.pairing.active,
             })
+        if path == "/api/devices" and method == "GET":
+            mine = self.devices.find(request.cookie(COOKIE))
+            if not mine:
+                return await self._respond(writer, request, 401)
+            return await self._json(writer, request, 200, {"devices": self._device_list(mine)})
+        if path == "/api/qr" and method == "GET":
+            if not self.devices.find(request.cookie(COOKIE)):
+                return await self._respond(writer, request, 401)
+            url = self.phone_url()
+            return await self._json(writer, request, 200, {"url": url, "svg": qr.svg(url)})
         if path == "/api/pair" and method == "POST":
             return await self._pair(request, writer)
         if path == "/api/forget" and method == "POST":
@@ -298,6 +311,7 @@ class Server:
                 await self._switch(True)
             return await self._json(writer, request, 200, {
                 "code": self.pairing.open(), "seconds": CODE_LIFETIME,
+                "phone_url": self.phone_url(),
                 "addresses": self.addresses(), "fingerprint": certs.fingerprint(self.cert),
             })
         if path == "/api/local/pairing" and method == "GET" and request.local():
@@ -320,12 +334,24 @@ class Server:
             return await self._websocket(request, reader, writer)
         await self._respond(writer, request, 404)
 
+    def _device_list(self, mine=None):
+        connected = self.client.device_id if self.client else None
+        return [
+            {"id": device_id, "name": d["name"], "kind": d.get("kind", "other"),
+             "last_seen": d["last_seen"], "connected": device_id == connected,
+             "this": device_id == mine}
+            for device_id, d in sorted(self.devices.devices.items(),
+                                       key=lambda item: -item[1]["last_seen"])
+        ]
+
     def _local_status(self):
         """Everything the Decky panel shows. Only served to the Deck itself."""
         client = self.client
         return {
             "on": self.enabled,
             "client": self.devices.devices.get(client.device_id, {}).get("name") if client else None,
+            "client_kind": (self.devices.devices.get(client.device_id, {}).get("kind", "other")
+                            if client else None),
             "session": bool(client and client.session),
             "addresses": self.addresses(),
             "fingerprint": certs.fingerprint(self.cert),
@@ -333,11 +359,9 @@ class Server:
                 "code": self.pairing.code if self.pairing.active else None,
                 "seconds": self.pairing.seconds_left,
             },
-            "devices": [
-                {"id": device_id, "name": d["name"], "last_seen": d["last_seen"]}
-                for device_id, d in sorted(self.devices.devices.items(),
-                                           key=lambda item: -item[1]["last_seen"])
-            ],
+            "devices": self._device_list(),
+            "phone_url": self.phone_url(),
+            "qr": qr.svg(self.phone_url()),
         }
 
     async def _pair(self, request, writer):
@@ -347,13 +371,14 @@ class Server:
             data = json.loads(request.body)
             code = str(data.get("code", "")).strip()
             name = str(data.get("name", "")).strip()[:40] or "PC"
+            kind = data.get("kind") if data.get("kind") in KINDS else "other"
         except (ValueError, AttributeError):
             return await self._respond(writer, request, 400)
         result = self.pairing.check(code)
         if result != "ok":
             error = "wrong_code" if result == "wrong" else "pairing_closed"
             return await self._json(writer, request, 403, {"error": error})
-        device_id, key = self.devices.add(name)
+        device_id, key = self.devices.add(name, kind)
         self.last_paired = name
         print(f"Paired: {name}", flush=True)
         cookie = (f"Set-Cookie: {COOKIE}={key}; Path=/; Max-Age=315360000; HttpOnly; Secure; "
@@ -548,6 +573,11 @@ class Server:
         self.media.release_all()
 
     # --- Run ----------------------------------------------------------------
+
+    def phone_url(self):
+        """Address for QR codes: the IP, because phones often cannot resolve .local names."""
+        addresses = self.addresses()
+        return addresses[-1]
 
     def addresses(self):
         suffix = "" if self.port == 443 else f":{self.port}"

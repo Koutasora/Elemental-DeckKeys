@@ -6,12 +6,17 @@
 """
 
 import json
+import os
 import shutil
 import ssl
 import subprocess
 import sys
 import time
 import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from deckkeys import qr  # noqa: E402
 
 BASE = "https://127.0.0.1:8443"
 # The service on this Deck uses its own self-signed certificate.
@@ -38,6 +43,9 @@ def pair():
     for address in info["addresses"]:
         print(f"  {address}")
     print(f"Certificate: {info['fingerprint']}")
+    print()
+    print("Scan with a phone to open the page:")
+    print(qr.terminal(info["phone_url"]))
     print()
     print(f"Pairing code: {info['code']}")
     print()

@@ -53,7 +53,9 @@ Deck puszcza wszystkie wciśnięte klawisze.
 1. Na Decku „Paruj nowe urządzenie” (na razie: menu aplikacji > Elemental DeckKeys – Pair,
    które pyta usługę przez `127.0.0.1` z nagłówkiem `X-DeckKeys-Local`): 6-cyfrowy kod, ważny 2 min, jednorazowy,
    unieważniany po 5 błędnych próbach.
-2. Na PC strona prosi o kod i nazwę urządzenia.
+2. Na PC strona prosi o kod i urządzenie: PC, Mac, Telefon (każde z ikoną) albo Inne z wpisaną
+   nazwą i ogólną ikoną. Kod zawsze wpisuje człowiek; kody QR (panel Decky, okno parowania,
+   Ustawienia) zawierają tylko adres strony z IP.
 3. Deck tworzy losowy klucz (256 bitów) i ustawia go w ciasteczku `HttpOnly; Secure; SameSite=Strict`.
    U siebie trzyma tylko skrót SHA-256 klucza.
 4. Lista sparowanych urządzeń w panelach z opcją „Usuń” (działa od razu).
