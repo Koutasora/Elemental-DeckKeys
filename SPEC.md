@@ -79,7 +79,9 @@ address, so when the page is opened by IP and the IP changes, the device has to 
   so they work system-wide.
 - **Touchpad**: a virtual mouse. On a PC the page takes the mouse (pointer lock) until Esc;
   on a phone the box works like a laptop touchpad (tap = click, two fingers = scroll or right
-  click). Left, middle and right buttons below. Sensitivity in Settings.
+  click). Left, middle, right and Esc buttons below. "Keyboard with the touchpad" decides
+  whether the PC keyboard goes to the Deck too while the mouse is captured; a small box shows
+  what was typed and the last action, as in Live. Sensitivity in Settings.
 - **Files**: drop or choose files to send them to `~/Downloads/DeckKeysTransfers/Received` on the Deck.
   Only during a session, streamed, never overwrites (`name (1).ext`), plain file names only,
   owned by the Deck user, a failed upload leaves nothing behind. The Decky panel lists received

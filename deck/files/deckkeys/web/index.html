@@ -108,6 +108,15 @@
         <button type="button" data-mouse="right" data-i18n="mouseRight"></button>
         <button type="button" id="pad-esc">Esc</button>
       </div>
+      <div id="pad-keyboard">
+        <div class="row">
+          <label class="check"><input type="checkbox" id="pad-keys"> <span data-i18n="padKeys"></span></label>
+          <span class="spacer"></span>
+          <button id="pad-preview-clear" type="button" data-i18n="clearPreview"></button>
+        </div>
+        <pre id="pad-preview" class="pad-preview"></pre>
+        <p id="pad-status" class="hint"></p>
+      </div>
     </div>
 
     <div id="panel-files" hidden>

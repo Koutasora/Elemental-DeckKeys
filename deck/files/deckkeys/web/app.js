@@ -66,6 +66,9 @@ const I18N = {
     mouseMiddle: "Middle",
     mouseRight: "Right",
     padHintPc: "Click here to move the Deck cursor with your mouse. Esc gives the cursor back.",
+    padKeys: "Keyboard with the touchpad",
+    padHintLockedMouse: "Your mouse moves the Deck cursor. Esc gives it back.",
+    padTypingHint: "Type to send keys to the Deck.",
     padHintLocked: "Your mouse and keyboard control the Deck. Esc gives them back.",
     padHintPhone: "Move a finger to move the cursor. Tap to click, tap with two fingers for a right click, drag two fingers to scroll.",
     sensitivity: "Touchpad sensitivity",
@@ -216,6 +219,9 @@ const I18N = {
     mouseMiddle: "Środkowy",
     mouseRight: "Prawy",
     padHintPc: "Kliknij tutaj, aby ruszać kursorem Decka swoją myszą. Esc oddaje kursor.",
+    padKeys: "Klawiatura z touchpadem",
+    padHintLockedMouse: "Twoja mysz rusza kursorem Decka. Esc oddaje kursor.",
+    padTypingHint: "Pisz, aby wysyłać klawisze na Decka.",
     padHintLocked: "Twoja mysz i klawiatura sterują Deckiem. Esc je oddaje.",
     padHintPhone: "Przesuwaj palcem, aby ruszać kursorem. Stuknij, aby kliknąć, stuknij dwoma palcami dla prawego kliknięcia, przesuwaj dwoma palcami, aby przewijać.",
     sensitivity: "Czułość touchpada",
@@ -485,6 +491,7 @@ function renderPreview() {
   live.value = [...preview.text]
     .map((ch, i) => (ch !== "\n" && (hidden() || preview.flags[i] === "1") ? "•" : ch))
     .join("");
+  renderPadPreview(live.value);
   if (preview.all) live.setSelectionRange(0, live.value.length);
   else live.setSelectionRange(preview.cursor, preview.cursor);
 }
@@ -819,12 +826,28 @@ function padActive() {
   return tab === "pad" && state.session;
 }
 
+function padKeys() {
+  return !phoneTyping && $("pad-keys").checked;
+}
+
+function renderPadPreview(text) {
+  const box = $("pad-preview");
+  box.replaceChildren();
+  const caret = document.createElement("span");
+  caret.className = "caret";
+  caret.textContent = "▏";
+  box.append(text.slice(0, preview.cursor), caret, text.slice(preview.cursor));
+}
+
 function renderPad() {
+  $("pad-keyboard").hidden = phoneTyping;
+  $("pad-preview").hidden = !padKeys();
+  $("pad-status").textContent = pad.locked && padKeys() ? lastAction || t("padTypingHint") : "";
   const el = $("pad");
   el.classList.toggle("capturing", pad.locked);
   let hint = phoneTyping ? t("padHintPhone") : t("padHintPc");
   if (state.connected && !state.session) hint = t("no_session");
-  else if (pad.locked) hint = t("padHintLocked");
+  else if (pad.locked) hint = padKeys() ? t("padHintLocked") : t("padHintLockedMouse");
   $("pad-hint").textContent = hint;
 }
 
@@ -893,13 +916,13 @@ function bindPad() {
 
   // While the mouse is captured the keyboard goes to the Deck too (Esc stays with the browser).
   document.addEventListener("keydown", (event) => {
-    if (!pad.locked || !padActive()) return;
+    if (!pad.locked || !padActive() || !padKeys()) return;
     if (event.ctrlKey && event.code === "KeyV") return;  // "paste" below sends the PC clipboard
     event.preventDefault();
     if (event.repeat || state.typing) return;
     held.add(event.code);
     send({ t: "key", code: event.code, down: true });
-    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) addLog("typed", event.key);
+    trackKey(event);
   });
   document.addEventListener("keyup", (event) => {
     if (!pad.locked || !held.has(event.code)) return;
@@ -908,13 +931,26 @@ function bindPad() {
     send({ t: "key", code: event.code, down: false });
   });
   document.addEventListener("paste", (event) => {
-    if (!pad.locked || !padActive()) return;
+    if (!pad.locked || !padActive() || !padKeys()) return;
     event.preventDefault();
     const text = event.clipboardData.getData("text/plain");
     held.clear();
     if (!text) return;
     sendText(text, false, false, false);
+    previewInsert(text);
+    renderPreview();
     addLog("pasted", text);
+    showAction("actPasted");
+  });
+  $("pad-keys").checked = store.get("padKeys", true);
+  $("pad-keys").addEventListener("change", () => {
+    store.set("padKeys", $("pad-keys").checked);
+    releaseHeld();
+    renderPad();
+  });
+  $("pad-preview-clear").addEventListener("click", () => {
+    clearPreview();
+    renderPreview();
   });
   document.addEventListener("mousemove", (event) => {
     if (pad.locked && padActive()) queuePad(event.movementX, event.movementY);
@@ -1553,6 +1589,7 @@ $("text").value = "";
 $("live").value = "";
 bind();
 updateTextMask();
+renderPreview();
 applyLanguage();
 selectTab(["text", "live", "media", "pad", "files"].includes(store.get("tab", "text")) ? store.get("tab", "text") : "text");
 start();

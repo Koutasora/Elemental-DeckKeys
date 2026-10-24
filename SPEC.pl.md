@@ -79,7 +79,9 @@ do adresu, więc zmiana IP przy wejściu przez IP wymaga ponownego parowania.
   wycisz) jako prawdziwe naciśnięcia, więc działają w całym systemie.
 - **Touchpad**: wirtualna mysz. Na PC strona przejmuje mysz (pointer lock) do wciśnięcia Esc;
   na telefonie pole działa jak touchpad laptopa (stuknięcie = klik, dwa palce = przewijanie albo
-  prawy klik). Pod spodem przyciski lewy, środkowy i prawy. Czułość w Ustawieniach.
+  prawy klik). Pod spodem przyciski lewy, środkowy, prawy i Esc. „Klawiatura z touchpadem” decyduje,
+  czy przy przechwyconej myszy klawiatura PC też trafia na Decka; małe okno pokazuje wpisany
+  tekst i ostatnią akcję, jak w „Na żywo”. Czułość w Ustawieniach.
 - **Pliki**: upuść albo wybierz pliki, aby wysłać je do `~/Downloads/DeckKeysTransfers/Received` na Decku.
   Tylko w trakcie sesji, strumieniowo, bez nadpisywania (`nazwa (1).ext`), tylko zwykłe nazwy plików,
   właścicielem jest użytkownik Decka, przerwane wysyłanie nic nie zostawia. Panel Decky pokazuje

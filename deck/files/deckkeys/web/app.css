@@ -273,6 +273,22 @@ kbd {
 
 .pad-buttons button { padding: 16px 8px; touch-action: none; }
 
+.pad-preview {
+  min-height: 56px;
+  max-height: 120px;
+  margin: 0;
+  padding: 8px 12px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, Consolas, monospace;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.pad-preview .caret { color: var(--accent); }
+
 @media (max-height: 500px) {
   .pad { height: 160px; }
 }
