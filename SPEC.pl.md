@@ -86,7 +86,8 @@ Na PC uruchamiane z zakładki albo skrótu `msedge --app=https://steamdeck.local
 - Bez `steamos-readonly disable` i bez `pacman`.
 - Python ze SteamOS, tylko biblioteka standardowa (ewentualna mała biblioteka dołączona
   do projektu).
-- Skrypt instalacyjny i odinstalowujący.
+- Skrypt instalacyjny i odinstalowujący, uruchamiane dwuklikiem w `Install Elemental DeckKeys.desktop`
+  / `Uninstall Elemental DeckKeys.desktop` w Dolphinie. Okno Konsole pyta tylko o hasło `sudo`.
 
 ## Etapy
 

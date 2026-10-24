@@ -83,7 +83,8 @@ On the PC it is opened from a bookmark or a `msedge --app=https://steamdeck.loca
   Both survive SteamOS updates.
 - No `steamos-readonly disable`, no `pacman`.
 - SteamOS Python, standard library only (a small library bundled with the project if needed).
-- Install and uninstall scripts.
+- Install and uninstall scripts, started by double-clicking `Install Elemental DeckKeys.desktop`
+  / `Uninstall Elemental DeckKeys.desktop` in Dolphin. A Konsole window asks only for the `sudo` password.
 
 ## Stages
 
