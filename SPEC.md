@@ -94,8 +94,14 @@ On the PC it is opened from a bookmark or a `msedge --app=https://steamdeck.loca
 3. Local panel + install script.
 4. Decky panel.
 
+## Verified (stage 0, 2026-10-24)
+
+- The virtual keyboard types in Desktop Mode and Game Mode, all test characters arrive.
+- The keyboard must report itself as USB. With a virtual bus Steam shows its on-screen
+  keyboard on every text field.
+- Double-clicking a `.desktop` file opens Konsole and asks only for the password.
+
 ## To verify in practice
 
-- Whether Game Mode (gamescope / Steam) picks up the new virtual keyboard right away.
 - At what speed Steam text fields start dropping characters.
 - Whether `steamdeck.local` resolves from Windows on a home network.

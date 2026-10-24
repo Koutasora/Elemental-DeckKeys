@@ -97,8 +97,14 @@ Na PC uruchamiane z zakładki albo skrótu `msedge --app=https://steamdeck.local
 3. Panel lokalny + skrypt instalacyjny.
 4. Panel Decky.
 
+## Sprawdzone (etap 0, 2026-10-24)
+
+- Wirtualna klawiatura pisze w trybie pulpitu i w trybie gry, wszystkie znaki testowe dochodzą.
+- Klawiatura musi przedstawiać się jako USB. Jako urządzenie wirtualne Steam pokazuje
+  klawiaturę ekranową przy każdym polu tekstowym.
+- Dwuklik w plik `.desktop` otwiera Konsole i pyta tylko o hasło.
+
 ## Do sprawdzenia w praktyce
 
-- Czy tryb gry (gamescope / Steam) od razu widzi nową wirtualną klawiaturę.
 - Przy jakim tempie pola w Steamie zaczynają gubić znaki.
 - Czy `steamdeck.local` działa w sieci domowej z Windows.

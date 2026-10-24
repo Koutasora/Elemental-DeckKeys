@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--interval", type=float, default=10)
     parser.add_argument("--speed", type=int, default=100, help="characters per second")
     parser.add_argument("--text", default=TEST_TEXT)
-    parser.add_argument("--bus", choices=["virtual", "usb"], default="virtual")
+    parser.add_argument("--bus", choices=["usb", "virtual"], default="usb")
     args = parser.parse_args()
 
     if os.geteuid() != 0:

@@ -72,7 +72,8 @@ CHARS = _build_char_map()
 
 
 class VirtualKeyboard:
-    def __init__(self, name="Elemental DeckKeys", bus=BUS_VIRTUAL):
+    # USB by default: with a virtual bus Steam keeps showing its on-screen keyboard.
+    def __init__(self, name="Elemental DeckKeys", bus=BUS_USB):
         self._fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
         self._pressed = set()
         try:
