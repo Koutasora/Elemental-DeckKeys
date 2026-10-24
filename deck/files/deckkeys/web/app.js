@@ -30,6 +30,7 @@ const I18N = {
     pairFailed: "Pairing failed. Check the connection to the Deck.",
     startSession: "Start session",
     continueSession: "Continue session",
+    notConnected: "Not connected",
     sessionLength: "Session ends after this many minutes without typing",
     endSession: "End session",
     reconnect: "Reconnect",
@@ -141,6 +142,7 @@ const I18N = {
     pairFailed: "Parowanie nie powiodło się. Sprawdź połączenie z Deckiem.",
     startSession: "Rozpocznij sesję",
     continueSession: "Kontynuuj sesję",
+    notConnected: "Brak połączenia",
     sessionLength: "Sesja kończy się po tylu minutach bez pisania",
     endSession: "Zakończ sesję",
     reconnect: "Połącz ponownie",
@@ -335,12 +337,15 @@ function render() {
   }
 
   const sessionBtn = $("session-btn");
+  sessionBtn.classList.toggle("ready", state.connected && !state.session && !replaced);
+  sessionBtn.classList.toggle("problem", replaced || (!state.connected && view === "main"));
   if (replaced) {
     sessionBtn.textContent = t("reconnect");
     sessionBtn.disabled = false;
   } else {
-    sessionBtn.textContent = state.session ? t("endSession")
-      : t(sessionEnded ? "continueSession" : "startSession");
+    sessionBtn.textContent = !state.connected ? t("notConnected")
+      : state.session ? t("endSession")
+        : t(sessionEnded ? "continueSession" : "startSession");
     sessionBtn.disabled = !state.connected;
   }
   $("session-info").textContent = state.session ? t("endsIn", { time: formatTime(state.remaining) }) : "";

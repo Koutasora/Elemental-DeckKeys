@@ -38,7 +38,9 @@ keeps working; only the panel in the `...` menu disappears.
 A session ends on "End session", closing the tab, a dropped connection (no heartbeat for 3 s while a key is held, 90 s otherwise, because
 browsers slow down background tabs)
 or a set time without typing (5, 10, 15, 20 or 30 minutes, 10 by default, in Settings).
-After a session ends the button reads "Continue session". When a session ends, the page loses focus or the tab is hidden,
+After a session ends the button reads "Continue session". The button is green when a session
+can start, blue while it runs and red when there is no connection. The virtual keyboard is
+plugged in only for the length of a session. When a session ends, the page loses focus or the tab is hidden,
 the Deck releases all held keys.
 
 ## Security

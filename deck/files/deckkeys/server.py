@@ -427,7 +427,7 @@ class Server:
         try:
             while not ws.closed:
                 try:
-                    held = self.keyboard.any_pressed or self.media.any_pressed
+                    held = any(d is not None and d.any_pressed for d in (self.keyboard, self.media))
                     timeout = (HEARTBEAT_TIMEOUT if held
                                else QUIET_HEARTBEAT_TIMEOUT)
                     message = await asyncio.wait_for(ws.recv(), timeout)
@@ -467,6 +467,7 @@ class Server:
         if client.typing:
             await client.typing
         self._release_all()
+        self._detach_devices()
         was_active = client.session
         client.session = False
         if notify and was_active:
@@ -481,6 +482,7 @@ class Server:
         if kind == "ping":
             await self._send_state(client)
         elif kind == "start":
+            await self._attach_devices()
             minutes = msg.get("minutes")
             client.idle_timeout = minutes * 60 if minutes in SESSION_MINUTES else IDLE_TIMEOUT
             client.session = True
@@ -570,8 +572,23 @@ class Server:
         await self._send_state(client)
 
     def _release_all(self):
-        self.keyboard.release_all()
-        self.media.release_all()
+        for device in (self.keyboard, self.media):
+            if device is not None:
+                device.release_all()
+
+    # The virtual keyboard is plugged in only for the length of a session. To Steam this
+    # looks like a USB keyboard plugged in while it runs, which is when it hides its own.
+    async def _attach_devices(self):
+        if self.keyboard is None:
+            self.keyboard, self.media = await asyncio.to_thread(lambda: (
+                VirtualKeyboard(),
+                VirtualKeyboard("Elemental DeckKeys Media", keys=MEDIA_CODES)))
+
+    def _detach_devices(self):
+        for device in (self.keyboard, self.media):
+            if device is not None:
+                device.close()
+        self.keyboard = self.media = None
 
     # --- Run ----------------------------------------------------------------
 
@@ -598,8 +615,6 @@ class Server:
             loop.default_exception_handler(context)
 
         loop.set_exception_handler(quiet_errors)
-        self.keyboard = VirtualKeyboard()
-        self.media = VirtualKeyboard("Elemental DeckKeys Media", keys=MEDIA_CODES)
         listening = asyncio.create_task(self._listen(certs.server_context(self.cert, self.key)))
         print("Elemental DeckKeys is running." if self.enabled
               else "Elemental DeckKeys is running, switched off.", flush=True)
@@ -622,6 +637,5 @@ class Server:
             listening.cancel()
             if self.client:
                 await self._drop_client(self.client, "shutdown")
-            self.keyboard.close()
-            self.media.close()
+            self._detach_devices()
             print("Stopped.", flush=True)

@@ -7,6 +7,10 @@
   --accent: #1d63d6;
   --accent-text: #ffffff;
   --danger: #b42318;
+  --ok-bg: #1a7f37;
+  --ok-text: #ffffff;
+  --error-bg: #c62828;
+  --error-text: #ffffff;
   color-scheme: light;
 }
 
@@ -20,6 +24,10 @@
     --accent: #5b95ff;
     --accent-text: #0b0d10;
     --danger: #ff8b80;
+    --ok-bg: #3fb950;
+    --ok-text: #0b0d10;
+    --error-bg: #f85149;
+    --error-text: #0b0d10;
     color-scheme: dark;
   }
 }
@@ -33,6 +41,10 @@
   --accent: #5b95ff;
   --accent-text: #0b0d10;
   --danger: #ff8b80;
+  --ok-bg: #3fb950;
+  --ok-text: #0b0d10;
+  --error-bg: #f85149;
+  --error-text: #0b0d10;
   color-scheme: dark;
 }
 
@@ -115,6 +127,11 @@ button.primary {
 }
 
 button.danger { color: var(--danger); }
+
+/* Session button: green = ready to start, blue (accent) = session running, red = problem. */
+#session-btn.ready { background: var(--ok-bg); border-color: var(--ok-bg); color: var(--ok-text); }
+#session-btn.problem { background: var(--error-bg); border-color: var(--error-bg); color: var(--error-text); }
+#session-btn.problem:disabled { opacity: 1; }
 
 input, select { padding: 8px 10px; }
 
