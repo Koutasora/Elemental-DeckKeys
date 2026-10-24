@@ -24,10 +24,10 @@ light and dark theme, English and Polish, and a layout for phones in both orient
 In Konsole on the Deck (or send the line from another device once DeckKeys runs):
 
 ```
-curl -L https://github.com/Koutasora/Elemental-DeckKeys/archive/refs/heads/main.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys-main/deck/files/install.sh
+curl -L https://github.com/Koutasora/Elemental-DeckKeys/releases/latest/download/Elemental-DeckKeys.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys/files/install.sh
 ```
 
-Or copy the `deck` folder to the Deck and double-click `Install Elemental DeckKeys.desktop`
+Or download `Elemental-DeckKeys.zip` from the [latest release](https://github.com/Koutasora/Elemental-DeckKeys/releases/latest), unpack it on the Deck and double-click `Install Elemental DeckKeys.desktop`
 in Dolphin. Either way you enter the `sudo` password once.
 
 - The service starts with the Deck from then on, in Game Mode and Desktop Mode.
@@ -80,6 +80,11 @@ It removes the service, the panel, the certificate and the paired browsers. File
 - `deck/` – what goes to the Deck: the installer and `files/` (Python, standard library only).
 - `decky-plugin/` – source of the Decky panel. `npm install` and `npm run build` there build it
   into `deck/files/decky/`.
+- The newest code from `main` (not a release), for testing:
+
+  ```
+  curl -L https://github.com/Koutasora/Elemental-DeckKeys/archive/refs/heads/main.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys-main/deck/files/install.sh
+  ```
 - [SPEC.md](SPEC.md) – how it works and why.
 
 ## License

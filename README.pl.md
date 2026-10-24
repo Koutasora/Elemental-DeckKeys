@@ -25,10 +25,10 @@ jasny i ciemny motyw, angielski i polski oraz układ na telefon w pionie i w poz
 W Konsole na Decku (albo wyślij tę linię z innego urządzenia, gdy DeckKeys już działa):
 
 ```
-curl -L https://github.com/Koutasora/Elemental-DeckKeys/archive/refs/heads/main.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys-main/deck/files/install.sh
+curl -L https://github.com/Koutasora/Elemental-DeckKeys/releases/latest/download/Elemental-DeckKeys.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys/files/install.sh
 ```
 
-Albo skopiuj folder `deck` na Decka i kliknij dwa razy `Install Elemental DeckKeys.desktop`
+Albo pobierz `Elemental-DeckKeys.zip` z [najnowszego wydania](https://github.com/Koutasora/Elemental-DeckKeys/releases/latest), rozpakuj go na Decku i kliknij dwa razy `Install Elemental DeckKeys.desktop`
 w Dolphinie. W obu przypadkach raz podajesz hasło `sudo`.
 
 - Od tej chwili usługa startuje razem z Deckiem, w trybie gry i pulpitu.
@@ -82,6 +82,11 @@ Usuwa usługę, panel, certyfikat i sparowane przeglądarki. Pliki w
 - `deck/` – to, co trafia na Decka: instalator i `files/` (Python, tylko biblioteka standardowa).
 - `decky-plugin/` – źródła panelu Decky. `npm install` i `npm run build` w tym folderze budują go
   do `deck/files/decky/`.
+- Najnowszy kod z `main` (nie wydanie), do testów:
+
+  ```
+  curl -L https://github.com/Koutasora/Elemental-DeckKeys/archive/refs/heads/main.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys-main/deck/files/install.sh
+  ```
 - [SPEC.pl.md](SPEC.pl.md) – jak to działa i dlaczego.
 
 ## Licencja
