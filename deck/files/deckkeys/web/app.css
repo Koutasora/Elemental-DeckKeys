@@ -184,6 +184,19 @@ kbd {
   font-size: 13px;
 }
 
+.media {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 560px;
+}
+
+.media button { padding: 14px 8px; }
+
+@media (max-width: 520px) {
+  .media { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .log { margin: 20px 0; }
 
 .log summary {

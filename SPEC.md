@@ -70,6 +70,8 @@ address, so when the page is opened by IP and the IP changes, the device has to 
 - **Live**: a "Click here to type on the Deck" area with an accent-colored border while it
   captures. Sends physical keys (`KeyboardEvent.code`). Ctrl+X and Ctrl+C go to the Deck as
   shortcuts. Ctrl+V and Ctrl+Shift+V type the PC clipboard on the Deck.
+- **Media**: media keys (previous, play/pause, next, stop, volume −/+, mute) as real key presses,
+  so they work system-wide.
 - **Settings**: theme (light / dark / system), language (automatic by default: Polish for a Polish browser, otherwise English), typing speed, "Forget this device".
 - Status bar: connection, session, time until automatic switch-off.
 - Plain HTML/CSS/JS, no frameworks, no CDN.

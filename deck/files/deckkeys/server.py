@@ -13,7 +13,7 @@ import time
 from http.cookies import CookieError, SimpleCookie
 
 from . import certs
-from .keyboard import BROWSER_CODES, VirtualKeyboard
+from .keyboard import BROWSER_CODES, MEDIA_KEYS, VirtualKeyboard
 from .pairing import CODE_LIFETIME, DeviceStore, Pairing
 from .websocket import WebSocket, accept_key
 
@@ -372,6 +372,11 @@ class Server:
             code = BROWSER_CODES.get(msg.get("code"))
             if client.session and not client.typing and code is not None:
                 self.keyboard.key(code, bool(msg.get("down")))
+                client.last_activity = time.monotonic()
+        elif kind == "media":
+            code = MEDIA_KEYS.get(msg.get("key"))
+            if client.session and not client.typing and code is not None:
+                self.keyboard.tap(code)
                 client.last_activity = time.monotonic()
         elif kind == "release":
             if not client.typing:

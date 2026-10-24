@@ -45,6 +45,7 @@
     <div class="tabs" role="tablist">
       <button id="tab-text" type="button" role="tab" data-i18n="tabText"></button>
       <button id="tab-live" type="button" role="tab" data-i18n="tabLive"></button>
+      <button id="tab-media" type="button" role="tab" data-i18n="tabMedia"></button>
     </div>
 
     <div id="panel-text">
@@ -70,6 +71,19 @@
         <label class="check"><input type="checkbox" id="hide-typed"> <span data-i18n="hideTyped"></span></label>
         <button id="preview-clear" type="button" data-i18n="clearPreview"></button>
       </div>
+    </div>
+
+    <div id="panel-media" hidden>
+      <div class="media">
+        <button type="button" data-media="previous" data-i18n="mediaPrevious"></button>
+        <button type="button" data-media="playpause" class="primary" data-i18n="mediaPlayPause"></button>
+        <button type="button" data-media="next" data-i18n="mediaNext"></button>
+        <button type="button" data-media="stop" data-i18n="mediaStop"></button>
+        <button type="button" data-media="volumedown" data-i18n="mediaVolumeDown"></button>
+        <button type="button" data-media="mute" data-i18n="mediaMute"></button>
+        <button type="button" data-media="volumeup" data-i18n="mediaVolumeUp"></button>
+      </div>
+      <p id="media-status" class="hint"></p>
     </div>
 
     <div id="progress" class="row" hidden>

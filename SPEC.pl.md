@@ -70,6 +70,8 @@ do adresu, więc zmiana IP przy wejściu przez IP wymaga ponownego parowania.
 - **Na żywo**: pole „Kliknij tutaj, aby pisać na Decku”, ramka w kolorze akcentu, gdy
   przechwytuje. Przesyła fizyczne klawisze (`KeyboardEvent.code`). Ctrl+X i Ctrl+C idą
   na Decka jako skróty. Ctrl+V i Ctrl+Shift+V wpisują na Decku tekst ze schowka PC.
+- **Multimedia**: klawisze multimedialne (poprzedni, odtwórz/pauza, następny, stop, ciszej/głośniej,
+  wycisz) jako prawdziwe naciśnięcia, więc działają w całym systemie.
 - **Ustawienia**: motyw (jasny / ciemny / systemowy), język (domyślnie automatyczny: polski dla polskiej przeglądarki, inaczej angielski), szybkość wpisywania,
   „Zapomnij to urządzenie”.
 - Pasek stanu: połączenie, sesja, czas do automatycznego wyłączenia.

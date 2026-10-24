@@ -39,7 +39,9 @@ KEY = {
     "F8": 66, "F9": 67, "F10": 68, "F11": 87, "F12": 88,
     "RIGHTCTRL": 97, "RIGHTALT": 100, "HOME": 102, "UP": 103, "PAGEUP": 104,
     "LEFT": 105, "RIGHT": 106, "END": 107, "DOWN": 108, "PAGEDOWN": 109,
-    "INSERT": 110, "DELETE": 111, "LEFTMETA": 125, "RIGHTMETA": 126,
+    "INSERT": 110, "DELETE": 111, "MUTE": 113, "VOLUMEDOWN": 114, "VOLUMEUP": 115,
+    "LEFTMETA": 125, "RIGHTMETA": 126, "NEXTSONG": 163, "PLAYPAUSE": 164,
+    "PREVIOUSSONG": 165, "STOPCD": 166,
 }
 
 
@@ -92,6 +94,9 @@ def _build_browser_map():
         "ArrowRight": "RIGHT", "Home": "HOME", "End": "END", "PageUp": "PAGEUP",
         "PageDown": "PAGEDOWN", "Insert": "INSERT", "Delete": "DELETE",
         "NumpadDecimal": "DOT", "NumpadDivide": "SLASH", "NumpadSubtract": "MINUS",
+        "AudioVolumeMute": "MUTE", "AudioVolumeDown": "VOLUMEDOWN",
+        "AudioVolumeUp": "VOLUMEUP", "MediaTrackNext": "NEXTSONG",
+        "MediaTrackPrevious": "PREVIOUSSONG", "MediaPlayPause": "PLAYPAUSE", "MediaStop": "STOPCD",
     }
     for code, name in names.items():
         codes[code] = KEY[name]
@@ -99,6 +104,12 @@ def _build_browser_map():
 
 
 BROWSER_CODES = _build_browser_map()
+
+MEDIA_KEYS = {
+    "previous": KEY["PREVIOUSSONG"], "playpause": KEY["PLAYPAUSE"], "next": KEY["NEXTSONG"],
+    "stop": KEY["STOPCD"], "volumedown": KEY["VOLUMEDOWN"], "mute": KEY["MUTE"],
+    "volumeup": KEY["VOLUMEUP"],
+}
 
 
 class VirtualKeyboard:

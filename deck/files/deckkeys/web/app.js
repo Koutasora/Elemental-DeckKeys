@@ -26,6 +26,14 @@ const I18N = {
     textLabel: "Text to type on the Deck",
     tabText: "Text",
     tabLive: "Live",
+    tabMedia: "Media",
+    mediaPrevious: "Previous",
+    mediaPlayPause: "Play/Pause",
+    mediaNext: "Next",
+    mediaStop: "Stop",
+    mediaVolumeDown: "Volume −",
+    mediaMute: "Mute",
+    mediaVolumeUp: "Volume +",
     livePlaceholder: "Click here to type on the Deck",
     liveCapturing: "Keys go to the Deck. Click outside the box to stop.",
     legend: "Legend",
@@ -114,6 +122,14 @@ const I18N = {
     textLabel: "Tekst do wpisania na Decku",
     tabText: "Tekst",
     tabLive: "Na żywo",
+    tabMedia: "Multimedia",
+    mediaPrevious: "Poprzedni",
+    mediaPlayPause: "Odtwórz/Pauza",
+    mediaNext: "Następny",
+    mediaStop: "Stop",
+    mediaVolumeDown: "Ciszej",
+    mediaMute: "Wycisz",
+    mediaVolumeUp: "Głośniej",
     livePlaceholder: "Kliknij tutaj, aby pisać na Decku",
     liveCapturing: "Klawisze trafiają na Decka. Kliknij poza polem, aby przestać.",
     legend: "Legenda",
@@ -286,14 +302,17 @@ function render() {
   const canSend = state.connected && state.session && !state.typing;
   $("send-btn").disabled = !canSend;
   document.querySelectorAll("#saved .send").forEach((b) => { b.disabled = !canSend; });
+  document.querySelectorAll("[data-media]").forEach((b) => { b.disabled = !canSend; });
   $("progress").hidden = !state.typing;
 
   const capturing = liveActive();
   $("live").classList.toggle("capturing", capturing);
   let liveStatus = "";
-  if (tab === "live" && state.connected && !state.session) liveStatus = t("no_session");
+  if (tab !== "text" && state.connected && !state.session) liveStatus = t("no_session");
   else if (capturing) liveStatus = lastAction || t("liveCapturing");
   $("live-status").textContent = liveStatus;
+  if (tab === "media" && state.connected && !state.session) $("media-status").textContent = t("no_session");
+  else if ($("media-status").textContent === t("no_session")) $("media-status").textContent = "";
 }
 
 // --- Live preview, action and log ----------------------------------------
@@ -474,6 +493,8 @@ function selectTab(name) {
   store.set("tab", name);
   $("tab-text").setAttribute("aria-selected", String(name === "text"));
   $("tab-live").setAttribute("aria-selected", String(name === "live"));
+  $("tab-media").setAttribute("aria-selected", String(name === "media"));
+  $("panel-media").hidden = name !== "media";
   $("panel-text").hidden = name !== "text";
   $("saved-section").hidden = name !== "text";
   $("panel-live").hidden = name !== "live";
@@ -767,6 +788,15 @@ function bind() {
   $("log-box").addEventListener("toggle", () => store.set("logOpen", $("log-box").open));
   $("tab-text").addEventListener("click", () => selectTab("text"));
   $("tab-live").addEventListener("click", () => selectTab("live"));
+  $("tab-media").addEventListener("click", () => selectTab("media"));
+  document.querySelectorAll("[data-media]").forEach((button) => {
+    button.addEventListener("click", () => {
+      send({ t: "media", key: button.dataset.media });
+      $("media-status").textContent = button.textContent;
+      clearTimeout(button.statusTimer);
+      button.statusTimer = setTimeout(() => { $("media-status").textContent = ""; }, 1500);
+    });
+  });
   bindLive();
 }
 
@@ -785,5 +815,5 @@ async function start() {
 applyTheme();
 bind();
 applyLanguage();
-selectTab(store.get("tab", "text") === "live" ? "live" : "text");
+selectTab(["text", "live", "media"].includes(store.get("tab", "text")) ? store.get("tab", "text") : "text");
 start();
