@@ -390,7 +390,7 @@ function show(name) {
 function showMessage(text, isError = false) {
   const el = $("message");
   el.textContent = text;
-  el.className = isError ? "error" : "message";
+  el.className = isError ? "message error" : "message";
   el.hidden = !text;
 }
 
@@ -744,6 +744,7 @@ function selectTab(name) {
   $("tab-pad").setAttribute("aria-selected", String(name === "pad"));
   $("tab-files").setAttribute("aria-selected", String(name === "files"));
   $("panel-files").hidden = name !== "files";
+  $("outbox-section").hidden = name !== "files";
   if (name === "files") loadOutbox();
   $("panel-pad").hidden = name !== "pad";
   if (name !== "pad") releaseMouse();

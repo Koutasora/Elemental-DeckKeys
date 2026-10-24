@@ -40,57 +40,64 @@
         <span data-i18n="deviceName"></span>
         <input id="pair-name" maxlength="40">
       </label>
-      <div><button type="submit" class="primary" data-i18n="pairButton"></button></div>
+      <div class="actions"><button type="submit" class="primary" data-i18n="pairButton"></button></div>
       <p id="pair-error" class="error" hidden></p>
     </form>
   </section>
 
   <section id="view-main" hidden>
-    <div class="row">
+    <div class="session">
       <button id="session-btn" type="button" class="primary"></button>
       <span id="session-info" class="hint"></span>
     </div>
 
     <div class="tabs">
       <div class="tab-list" role="tablist">
-      <button id="tab-text" type="button" role="tab" data-i18n="tabText"></button>
-      <button id="tab-live" type="button" role="tab" data-i18n="tabLive"></button>
-      <button id="tab-media" type="button" role="tab" data-i18n="tabMedia"></button>
-      <button id="tab-pad" type="button" role="tab" data-i18n="tabPad"></button>
-      <button id="tab-files" type="button" role="tab" data-i18n="tabFiles"></button>
+        <button id="tab-text" type="button" role="tab" data-i18n="tabText"></button>
+        <button id="tab-live" type="button" role="tab" data-i18n="tabLive"></button>
+        <button id="tab-media" type="button" role="tab" data-i18n="tabMedia"></button>
+        <button id="tab-pad" type="button" role="tab" data-i18n="tabPad"></button>
+        <button id="tab-files" type="button" role="tab" data-i18n="tabFiles"></button>
       </div>
     </div>
 
-    <div id="panel-text">
-    <textarea id="text" rows="7" spellcheck="false" autocomplete="off" autocapitalize="off"
-              data-i18n-label="textLabel" data-i18n-placeholder="textPlaceholder"></textarea>
-    <div class="row">
-      <label class="check"><input type="checkbox" id="enter"> <span data-i18n="enterAtEnd"></span></label>
-      <label class="check"><input type="checkbox" id="clear"> <span data-i18n="clearAfter"></span></label>
-      <label class="check"><input type="checkbox" class="hide-typed"> <span data-i18n="hideTyped"></span></label>
-      <span class="spacer"></span>
-      <button id="save-btn" type="button" data-i18n="save"></button>
-      <button id="send-btn" type="button" class="primary" data-i18n="send"></button>
-    </div>
-    <p class="hint" data-i18n="sendHint"></p>
+    <!-- Every panel: work area, one controls row (options left, actions right), hints. -->
+    <div id="panel-text" class="panel">
+      <textarea id="text" rows="7" spellcheck="false" autocomplete="off" autocapitalize="off"
+                data-i18n-label="textLabel" data-i18n-placeholder="textPlaceholder"></textarea>
+      <div class="controls">
+        <div class="options">
+          <label class="check"><input type="checkbox" id="enter"> <span data-i18n="enterAtEnd"></span></label>
+          <label class="check"><input type="checkbox" id="clear"> <span data-i18n="clearAfter"></span></label>
+          <label class="check"><input type="checkbox" class="hide-typed"> <span data-i18n="hideTyped"></span></label>
+        </div>
+        <div class="actions">
+          <button id="save-btn" type="button" data-i18n="save"></button>
+          <button id="send-btn" type="button" class="primary" data-i18n="send"></button>
+        </div>
+      </div>
+      <p class="hint" data-i18n="sendHint"></p>
     </div>
 
-    <div id="panel-live" hidden>
+    <div id="panel-live" class="panel" hidden>
       <textarea id="live" class="live" rows="6" spellcheck="false" autocomplete="off"
                 autocapitalize="off" data-i18n-placeholder="livePlaceholder"
                 data-i18n-label="tabLive"></textarea>
-      <div class="row">
-        <span id="live-status" class="hint"></span>
-        <span class="spacer"></span>
-        <label class="check"><input type="checkbox" class="hide-typed"> <span data-i18n="hideTyped"></span></label>
-        <button id="preview-clear" type="button" data-i18n="clearPreview"></button>
+      <div class="controls">
+        <div class="options">
+          <label class="check"><input type="checkbox" class="hide-typed"> <span data-i18n="hideTyped"></span></label>
+        </div>
+        <div class="actions">
+          <button id="preview-clear" type="button" data-i18n="clearPreview"></button>
+        </div>
       </div>
+      <p id="live-status" class="hint"></p>
     </div>
 
-    <div id="panel-media" hidden>
+    <div id="panel-media" class="panel" hidden>
       <div class="media">
         <button type="button" data-media="previous" data-i18n="mediaPrevious"></button>
-        <button type="button" data-media="playpause" class="primary" data-i18n="mediaPlayPause"></button>
+        <button type="button" data-media="playpause" data-i18n="mediaPlayPause"></button>
         <button type="button" data-media="next" data-i18n="mediaNext"></button>
         <button type="button" data-media="stop" data-i18n="mediaStop"></button>
         <button type="button" data-media="volumedown" data-i18n="mediaVolumeDown"></button>
@@ -100,7 +107,7 @@
       <p id="media-status" class="hint"></p>
     </div>
 
-    <div id="panel-pad" hidden>
+    <div id="panel-pad" class="panel" hidden>
       <div id="pad" class="pad"><span id="pad-hint"></span></div>
       <div class="pad-buttons">
         <button type="button" data-mouse="left" data-i18n="mouseLeft"></button>
@@ -108,60 +115,52 @@
         <button type="button" data-mouse="right" data-i18n="mouseRight"></button>
         <button type="button" id="pad-esc">Esc</button>
       </div>
-      <div id="pad-keyboard">
-        <div class="row">
-          <label class="check"><input type="checkbox" id="pad-keys"> <span data-i18n="padKeys"></span></label>
-          <label class="check"><input type="checkbox" class="hide-typed"> <span data-i18n="hideTyped"></span></label>
-          <span class="spacer"></span>
-          <button id="pad-preview-clear" type="button" data-i18n="clearPreview"></button>
+      <div id="pad-keyboard" class="panel">
+        <div class="controls">
+          <div class="options">
+            <label class="check"><input type="checkbox" id="pad-keys"> <span data-i18n="padKeys"></span></label>
+            <label class="check"><input type="checkbox" class="hide-typed"> <span data-i18n="hideTyped"></span></label>
+          </div>
+          <div class="actions">
+            <button id="pad-preview-clear" type="button" data-i18n="clearPreview"></button>
+          </div>
         </div>
         <pre id="pad-preview" class="pad-preview"></pre>
         <p id="pad-status" class="hint"></p>
       </div>
     </div>
 
-    <div id="panel-files" hidden>
+    <div id="panel-files" class="panel" hidden>
       <div id="drop" class="drop">
         <p data-i18n="dropHint"></p>
         <button id="choose-files" type="button" class="primary" data-i18n="chooseFiles"></button>
         <input id="file-input" type="file" multiple hidden>
       </div>
       <p class="hint" data-i18n="filesFolder"></p>
-      <div class="row" id="uploads-head" hidden>
-        <span class="spacer"></span>
-        <button id="uploads-clear" type="button" data-i18n="clearList"></button>
+      <div id="uploads-head" class="controls" hidden>
+        <div class="options"></div>
+        <div class="actions">
+          <button id="uploads-clear" type="button" data-i18n="clearList"></button>
+        </div>
       </div>
-      <ul id="uploads" class="uploads"></ul>
-
-      <div class="row">
-        <h2 data-i18n="fromDeck"></h2>
-        <span class="spacer"></span>
-        <button id="outbox-refresh" type="button" data-i18n="refresh"></button>
-      </div>
-      <p class="hint" data-i18n="outboxHint"></p>
-      <p id="outbox-empty" class="hint" data-i18n="outboxEmpty" hidden></p>
-      <ul id="outbox" class="uploads"></ul>
+      <ul id="uploads" class="file-list"></ul>
     </div>
 
-    <div id="progress" class="row" hidden>
+    <div id="progress" class="progress" hidden>
       <progress id="progress-bar" max="1" value="0"></progress>
       <span id="progress-text" class="hint"></span>
       <button id="stop-btn" type="button" data-i18n="stop"></button>
     </div>
     <p id="message" class="message" hidden></p>
 
-    <details id="log-box" class="log">
-      <summary data-i18n="log"></summary>
-      <div class="row">
-        <span class="hint" data-i18n="logHint"></span>
-        <span class="spacer"></span>
-        <label class="check"><input type="checkbox" id="log-keys"> <span data-i18n="logKeys"></span></label>
-        <button id="log-clear" type="button" data-i18n="clear"></button>
-      </div>
-      <ol id="log-list" class="log-list"></ol>
+    <!-- Sections: the tab's own first, then Log, then Legend. -->
+    <details id="saved-section" class="section" open>
+      <summary data-i18n="saved"></summary>
+      <p id="saved-empty" class="hint" data-i18n="savedEmpty"></p>
+      <ul id="saved" class="saved"></ul>
     </details>
 
-    <details id="macros" class="legend">
+    <details id="macros" class="section">
       <summary data-i18n="macros"></summary>
       <div class="macros">
         <button type="button" data-macro="altf4">Alt+F4</button>
@@ -174,9 +173,37 @@
       </div>
     </details>
 
-    <details id="legend" class="legend">
+    <details id="outbox-section" class="section" open>
+      <summary data-i18n="fromDeck"></summary>
+      <div class="controls">
+        <div class="options">
+          <p class="hint" data-i18n="outboxHint"></p>
+        </div>
+        <div class="actions">
+          <button id="outbox-refresh" type="button" data-i18n="refresh"></button>
+        </div>
+      </div>
+      <p id="outbox-empty" class="hint" data-i18n="outboxEmpty" hidden></p>
+      <ul id="outbox" class="file-list"></ul>
+    </details>
+
+    <details id="log-box" class="section">
+      <summary data-i18n="log"></summary>
+      <div class="controls">
+        <div class="options">
+          <label class="check"><input type="checkbox" id="log-keys"> <span data-i18n="logKeys"></span></label>
+        </div>
+        <div class="actions">
+          <button id="log-clear" type="button" data-i18n="clear"></button>
+        </div>
+      </div>
+      <p class="hint" data-i18n="logHint"></p>
+      <ol id="log-list" class="log-list"></ol>
+    </details>
+
+    <details id="legend" class="section">
       <summary data-i18n="legend"></summary>
-      <dl id="legend-live">
+      <dl id="legend-live" class="legend">
         <dt><kbd>Ctrl+V</kbd>, <kbd>Ctrl+Shift+V</kbd></dt>
         <dd data-i18n="legendPaste"></dd>
         <dt><kbd>Ctrl+W</kbd>, <kbd>Ctrl+T</kbd></dt>
@@ -186,7 +213,7 @@
         <dt data-i18n="legendGameModeTerm"></dt>
         <dd data-i18n="legendGameMode"></dd>
       </dl>
-      <dl id="legend-pad">
+      <dl id="legend-pad" class="legend">
         <dt data-i18n="legendPadClickTerm"></dt>
         <dd data-i18n="legendPadClick"></dd>
         <dt><kbd>Esc</kbd></dt>
@@ -197,12 +224,6 @@
         <dd data-i18n="legendPadPhone"></dd>
       </dl>
     </details>
-
-    <div id="saved-section">
-      <h2 data-i18n="saved"></h2>
-      <p id="saved-empty" class="hint" data-i18n="savedEmpty"></p>
-      <ul id="saved" class="saved"></ul>
-    </div>
   </section>
 
   <section id="view-settings" hidden>
@@ -254,23 +275,25 @@
           <option value="400">400</option>
         </select>
       </label>
-      <div>
-        <h2 data-i18n="pairedDevices"></h2>
-        <ul id="devices" class="devices"></ul>
-      </div>
-      <div>
-        <h2 data-i18n="openOnPhone"></h2>
-        <p class="hint" data-i18n="openOnPhoneHint"></p>
-        <img id="qr" class="qr" alt="">
-        <p id="qr-url" class="hint"></p>
-      </div>
-      <div class="row">
+    </div>
+
+    <h2 data-i18n="pairedDevices"></h2>
+    <ul id="devices" class="devices"></ul>
+
+    <h2 data-i18n="openOnPhone"></h2>
+    <p class="hint" data-i18n="openOnPhoneHint"></p>
+    <img id="qr" class="qr" alt="">
+    <p id="qr-url" class="hint"></p>
+
+    <div class="controls settings-actions">
+      <div class="options">
         <button id="forget-btn" type="button" class="danger" data-i18n="forget"></button>
-        <span class="spacer"></span>
+      </div>
+      <div class="actions">
         <button id="settings-close" type="button" class="primary" data-i18n="close"></button>
       </div>
-      <p id="version" class="hint"></p>
     </div>
+    <p id="version" class="hint"></p>
   </section>
 </main>
 </body>
