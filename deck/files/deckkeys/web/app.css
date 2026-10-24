@@ -181,6 +181,15 @@ textarea {
 }
 
 .legend dt { color: var(--text); }
+
+.macros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.macros button { font-family: ui-monospace, Consolas, monospace; font-size: 14px; }
 .legend dd { margin: 0; }
 
 kbd {
@@ -259,7 +268,23 @@ progress { flex: 1; min-width: 120px; accent-color: var(--accent); }
   font-family: ui-monospace, Consolas, monospace;
 }
 
+#settings-btn { margin-left: auto; }
+
 @media (max-width: 520px) {
   .bar { flex-wrap: wrap; }
   .status { order: 3; flex-basis: 100%; }
+}
+
+/* Touch screens: bigger targets. */
+@media (pointer: coarse) {
+  button, select, input:not([type="checkbox"]) { min-height: 44px; }
+  .check input { width: 22px; height: 22px; }
+  .tabs button { padding: 10px 14px; }
+}
+
+/* Phones held sideways: keep the boxes low so the buttons stay on screen. */
+@media (max-height: 500px) {
+  main { padding-top: 8px; }
+  textarea, .live { min-height: 110px; }
+  #text { height: 110px; }
 }

@@ -52,7 +52,7 @@
 
     <div id="panel-text">
     <textarea id="text" rows="7" spellcheck="false" autocomplete="off" autocapitalize="off"
-              data-i18n-label="textLabel"></textarea>
+              data-i18n-label="textLabel" data-i18n-placeholder="textPlaceholder"></textarea>
     <div class="row">
       <label class="check"><input type="checkbox" id="enter"> <span data-i18n="enterAtEnd"></span></label>
       <label class="check"><input type="checkbox" id="clear"> <span data-i18n="clearAfter"></span></label>
@@ -103,6 +103,18 @@
         <button id="log-clear" type="button" data-i18n="clear"></button>
       </div>
       <ol id="log-list" class="log-list"></ol>
+    </details>
+
+    <details id="macros" class="legend">
+      <summary data-i18n="macros"></summary>
+      <div class="macros">
+        <button type="button" data-macro="altf4">Alt+F4</button>
+        <button type="button" data-macro="alttab">Alt+Tab</button>
+        <button type="button" data-macro="ctrlw">Ctrl+W</button>
+        <button type="button" data-macro="ctrlt">Ctrl+T</button>
+        <button type="button" data-macro="f11">F11</button>
+        <button type="button" data-macro="super">Super</button>
+      </div>
     </details>
 
     <details id="legend" class="legend">

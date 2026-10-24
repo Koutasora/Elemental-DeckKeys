@@ -24,6 +24,7 @@ const I18N = {
     reconnect: "Reconnect",
     endsIn: "Ends in {time}",
     textLabel: "Text to type on the Deck",
+    textPlaceholder: "Type or paste text to send to the Deck",
     tabText: "Text",
     tabLive: "Live",
     tabMedia: "Media",
@@ -36,6 +37,8 @@ const I18N = {
     mediaVolumeUp: "Volume +",
     livePlaceholder: "Click here to type on the Deck",
     liveCapturing: "Keys go to the Deck. Click outside the box to stop.",
+    macros: "Macros",
+    logMacro: "Macro: {name}",
     legend: "Legend",
     legendPaste: "type the PC clipboard",
     legendBrowser: "stay in the browser",
@@ -120,6 +123,7 @@ const I18N = {
     reconnect: "Połącz ponownie",
     endsIn: "Wyłączy się za {time}",
     textLabel: "Tekst do wpisania na Decku",
+    textPlaceholder: "Wpisz lub wklej tekst do wysłania na Decka",
     tabText: "Tekst",
     tabLive: "Na żywo",
     tabMedia: "Multimedia",
@@ -132,6 +136,8 @@ const I18N = {
     mediaVolumeUp: "Głośniej",
     livePlaceholder: "Kliknij tutaj, aby pisać na Decku",
     liveCapturing: "Klawisze trafiają na Decka. Kliknij poza polem, aby przestać.",
+    macros: "Makra",
+    logMacro: "Makro: {name}",
     legend: "Legenda",
     legendPaste: "wpisuje schowek z PC",
     legendBrowser: "zostają w przeglądarce",
@@ -304,7 +310,7 @@ function render() {
   const canSend = state.connected && state.session && !state.typing;
   $("send-btn").disabled = !canSend;
   document.querySelectorAll("#saved .send").forEach((b) => { b.disabled = !canSend; });
-  document.querySelectorAll("[data-media]").forEach((b) => { b.disabled = !canSend; });
+  document.querySelectorAll("[data-media], [data-macro]").forEach((b) => { b.disabled = !canSend; });
   $("progress").hidden = !state.typing;
 
   const capturing = liveActive();
@@ -439,8 +445,9 @@ function logLabel(entry) {
   const simple = {
     deleted: "logDeleted", moved: "logMoved", enter: "logEnter", tab: "logTab",
     escape: "logEscape", selectAll: "logSelectAll", copied: "logCopied", cut: "logCut",
-    undo: "logUndo",
+    undo: "logUndo", macro: "logMacro",
   }[entry.kind];
+  if (entry.kind === "macro") return t(simple, { name: entry.name });
   const label = t(simple, { n: entry.count });
   // Tab, Escape, Enter: "Tab ×3" when repeated.
   return entry.count > 1 && !label.includes("×") ? `${label} ×${entry.count}` : label;
@@ -491,6 +498,20 @@ function renderLog() {
   list.scrollTop = list.scrollHeight;
 }
 
+function sendChars(text) {
+  send({ t: "chars", text });
+  previewInsert(text);
+  addLog("typed", text);
+  showAction("actTyping");
+  renderPreview();
+}
+
+function tapKey(key) {
+  send({ t: "key", code: key, down: true });
+  send({ t: "key", code: key, down: false });
+  trackKey({ key, code: key, ctrlKey: false, metaKey: false });
+}
+
 function trackKey(event) {
   const { key, code } = event;
   if (event.ctrlKey || event.metaKey) {
@@ -537,6 +558,7 @@ function selectTab(name) {
   $("saved-section").hidden = name !== "text";
   $("panel-live").hidden = name !== "live";
   $("legend").hidden = name !== "live";
+  $("macros").hidden = name !== "live";
   if (name !== "live") releaseHeld();
   render();
 }
@@ -555,6 +577,8 @@ function bindLive() {
   const live = $("live");
   live.addEventListener("keydown", (event) => {
     if (!liveActive()) return;
+    // Phone keyboards report "Unidentified"; their input is handled in "beforeinput".
+    if (event.key === "Unidentified" || event.keyCode === 229) return;
     // Ctrl+V / Ctrl+Shift+V: let the browser fire "paste" with the PC clipboard.
     if (event.ctrlKey && event.code === "KeyV") return;
     event.preventDefault();
@@ -581,8 +605,31 @@ function bindLive() {
     addLog("pasted", text);
     showAction("actPasted");
   });
+  // Phone keyboards: characters, Backspace and Enter arrive as input events.
+  let composing = false;
+  live.addEventListener("beforeinput", (event) => {
+    if (!liveActive() || composing || state.typing) return;
+    if (event.inputType === "insertText" && event.data) {
+      event.preventDefault();
+      sendChars(event.data);
+    } else if (event.inputType === "deleteContentBackward") {
+      event.preventDefault();
+      tapKey("Backspace");
+    } else if (event.inputType === "insertLineBreak" || event.inputType === "insertParagraph") {
+      event.preventDefault();
+      tapKey("Enter");
+    }
+  });
+  live.addEventListener("compositionstart", () => { composing = true; });
+  live.addEventListener("compositionend", (event) => {
+    composing = false;
+    if (liveActive() && event.data) sendChars(event.data);
+    renderPreview();
+  });
   // The box only mirrors what was sent; undo anything the browser changed itself.
-  live.addEventListener("input", renderPreview);
+  live.addEventListener("input", () => {
+    if (!composing) renderPreview();
+  });
   live.addEventListener("mouseup", renderPreview);
   live.addEventListener("focus", render);
   live.addEventListener("blur", () => {
@@ -826,6 +873,16 @@ function bind() {
   $("log-clear").addEventListener("click", () => {
     logEntries.length = 0;
     renderLog();
+  });
+  $("macros").open = store.get("macrosExpanded", true);
+  $("macros").addEventListener("toggle", () => store.set("macrosExpanded", $("macros").open));
+  document.querySelectorAll("[data-macro]").forEach((button) => {
+    button.addEventListener("click", () => {
+      send({ t: "macro", key: button.dataset.macro });
+      addLog("macro");
+      logEntries[logEntries.length - 1].name = button.textContent;
+      renderLog();
+    });
   });
   $("legend").open = store.get("legendExpanded", false);
   $("legend").addEventListener("toggle", () => store.set("legendExpanded", $("legend").open));

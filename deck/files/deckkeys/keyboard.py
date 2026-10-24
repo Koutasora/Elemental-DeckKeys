@@ -105,6 +105,12 @@ def _build_browser_map():
 
 BROWSER_CODES = _build_browser_map()
 
+# Shortcuts the browser on the PC keeps for itself, sent from buttons instead.
+MACROS = {
+    "altf4": ("LEFTALT", "F4"), "alttab": ("LEFTALT", "TAB"), "ctrlw": ("LEFTCTRL", "W"),
+    "ctrlt": ("LEFTCTRL", "T"), "f11": ("F11",), "super": ("LEFTMETA",),
+}
+
 MEDIA_KEYS = {
     "previous": KEY["PREVIOUSSONG"], "playpause": KEY["PLAYPAUSE"], "next": KEY["NEXTSONG"],
     "stop": KEY["STOPCD"], "volumedown": KEY["VOLUMEDOWN"], "mute": KEY["MUTE"],
@@ -161,6 +167,16 @@ class VirtualKeyboard:
         if shift:
             time.sleep(delay)
             self.key(KEY["LEFTSHIFT"], False)
+
+    def combo(self, names, delay=0.02):
+        """Presses keys in order, then releases them in reverse order."""
+        codes = [KEY[name] for name in names]
+        for code in codes:
+            self.key(code, True)
+            time.sleep(delay)
+        for code in reversed(codes):
+            self.key(code, False)
+            time.sleep(delay)
 
     def type_text(self, text, chars_per_second=100, stop=None, progress=None):
         """Types ASCII text. Returns characters that could not be typed.

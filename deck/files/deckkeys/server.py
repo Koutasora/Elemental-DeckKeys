@@ -13,7 +13,7 @@ import time
 from http.cookies import CookieError, SimpleCookie
 
 from . import certs
-from .keyboard import BROWSER_CODES, MEDIA_KEYS, VirtualKeyboard
+from .keyboard import BROWSER_CODES, MACROS, MEDIA_KEYS, VirtualKeyboard
 from .pairing import CODE_LIFETIME, DeviceStore, Pairing
 from .websocket import WebSocket, accept_key
 
@@ -404,10 +404,24 @@ class Server:
             if client.session and not client.typing and code is not None:
                 self.keyboard.key(code, bool(msg.get("down")))
                 client.last_activity = time.monotonic()
+        elif kind == "chars":
+            # Live mode on a phone: on-screen keyboards deliver characters, not keys.
+            text = msg.get("text")
+            if (client.session and not client.typing and isinstance(text, str)
+                    and 0 < len(text) <= 200):
+                self.keyboard.release_all()
+                await asyncio.to_thread(self.keyboard.type_text, text, 200)
+                client.last_activity = time.monotonic()
         elif kind == "media":
             code = MEDIA_KEYS.get(msg.get("key"))
             if client.session and not client.typing and code is not None:
                 self.keyboard.tap(code)
+                client.last_activity = time.monotonic()
+        elif kind == "macro":
+            names = MACROS.get(msg.get("key"))
+            if client.session and not client.typing and names:
+                self.keyboard.release_all()
+                await asyncio.to_thread(self.keyboard.combo, names)
                 client.last_activity = time.monotonic()
         elif kind == "release":
             if not client.typing:
