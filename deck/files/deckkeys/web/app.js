@@ -603,20 +603,32 @@ function twoDigits(n) {
   return String(n).padStart(2, "0");
 }
 
+// Things the log does not list (mouse clicks, media keys) still end the current line,
+// and so does a pause: the Deck may have changed field in between.
+const LOG_PAUSE = 2000;
+let logBreak = false;
+
+function breakLog() {
+  logBreak = true;
+}
+
 function addLog(kind, payload = null) {
   const last = logEntries[logEntries.length - 1];
   const grouped = ["typed", "deleted", "moved", "enter", "tab", "escape"];
+  const continues = last && !logBreak && Date.now() - last.at < LOG_PAUSE;
+  logBreak = false;
   // Text typed while "Hide typed text" is on is never stored: only its length is kept.
   const secret = hidden() && payload !== null;
   const length = payload === null ? 0 : payload.length;
-  if (last && last.kind === kind && grouped.includes(kind) && last.hidden === secret) {
+  if (continues && last.kind === kind && grouped.includes(kind) && last.hidden === secret) {
     if (kind === "typed" && !secret) last.payload += payload;
     last.length += length;
     last.count += 1;
+    last.at = Date.now();
   } else {
     const now = new Date();
     logEntries.push({
-      kind, payload: secret ? null : payload, length, count: 1, hidden: secret,
+      kind, payload: secret ? null : payload, length, count: 1, hidden: secret, at: Date.now(),
       time: `${twoDigits(now.getHours())}:${twoDigits(now.getMinutes())}:${twoDigits(now.getSeconds())}`,
     });
     if (logEntries.length > 100) logEntries.shift();
@@ -873,8 +885,12 @@ function queuePad(dx, dy, wheel = 0) {
 }
 
 function mouseButton(name, down) {
-  if (down) pad.held.add(name);
-  else if (!pad.held.delete(name)) return;
+  if (down) {
+    breakLog();
+    pad.held.add(name);
+  } else if (!pad.held.delete(name)) {
+    return;
+  }
   send({ t: "button", b: name, down });
 }
 
@@ -1572,6 +1588,7 @@ function bind() {
   document.querySelectorAll("[data-media]").forEach((button) => {
     button.addEventListener("click", () => {
       send({ t: "media", key: button.dataset.media });
+      breakLog();
       $("media-status").textContent = button.textContent;
       clearTimeout(button.statusTimer);
       button.statusTimer = setTimeout(() => { $("media-status").textContent = ""; }, 1500);
