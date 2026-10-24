@@ -16,7 +16,7 @@ from deckkeys.server import Server  # noqa: E402
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=443)
+    parser.add_argument("--port", type=int, default=8443)
     parser.add_argument("--pair", action="store_true")
     parser.add_argument("--data-dir", default=os.path.join(HERE, "data"))
     args = parser.parse_args()

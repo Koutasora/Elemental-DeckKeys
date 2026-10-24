@@ -9,7 +9,7 @@ import sys
 import time
 import urllib.request
 
-BASE = "https://127.0.0.1"
+BASE = "https://127.0.0.1:8443"
 # The service on this Deck uses its own self-signed certificate.
 CONTEXT = ssl._create_unverified_context()
 

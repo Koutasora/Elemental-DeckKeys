@@ -22,7 +22,7 @@ are still to come. See [SPEC.md](SPEC.md) for the plan.
 
 1. On the Deck: application menu > **Elemental DeckKeys – Pair** (no password).
    It shows the address and a 6-digit code valid for 2 minutes.
-2. On the PC open `https://steamdeck.local`, accept the certificate warning once
+2. On the PC open `https://steamdeck.local:8443`, accept the certificate warning once
    and enter the code.
 
 ## Use

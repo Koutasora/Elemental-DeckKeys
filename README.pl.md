@@ -22,7 +22,7 @@ jeszcze do zrobienia. Plan w [SPEC.pl.md](SPEC.pl.md).
 
 1. Na Decku: menu aplikacji > **Elemental DeckKeys – Pair** (bez hasła).
    Pokaże adres i 6-cyfrowy kod ważny 2 minuty.
-2. Na PC otwórz `https://steamdeck.local`, raz zaakceptuj ostrzeżenie o certyfikacie
+2. Na PC otwórz `https://steamdeck.local:8443`, raz zaakceptuj ostrzeżenie o certyfikacie
    i wpisz kod.
 
 ## Używanie
