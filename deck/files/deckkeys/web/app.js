@@ -45,7 +45,7 @@ const I18N = {
     mouseMiddle: "Middle",
     mouseRight: "Right",
     padHintPc: "Click here to move the Deck cursor with your mouse. Esc gives the cursor back.",
-    padHintLocked: "Your mouse moves the Deck cursor. Esc gives it back.",
+    padHintLocked: "Your mouse and keyboard control the Deck. Esc gives them back.",
     padHintPhone: "Move a finger to move the cursor. Tap to click, tap with two fingers for a right click, drag two fingers to scroll.",
     sensitivity: "Touchpad sensitivity",
     mediaPrevious: "Previous",
@@ -65,8 +65,8 @@ const I18N = {
     legendBoxTerm: "Box",
     legendBox: "shows what you typed; check it on the Deck",
     legendPadClickTerm: "Click the box",
-    legendPadClick: "takes the mouse, only during a session",
-    legendPadEsc: "gives the mouse back to the PC",
+    legendPadClick: "takes the mouse and the keyboard, only during a session",
+    legendPadEsc: "gives them back to the PC (Esc itself does not reach the Deck)",
     legendPadAwayTerm: "Other tab, window or browser tab",
     legendPadAway: "also give the mouse back",
     legendPadPhoneTerm: "Phone",
@@ -174,7 +174,7 @@ const I18N = {
     mouseMiddle: "Środkowy",
     mouseRight: "Prawy",
     padHintPc: "Kliknij tutaj, aby ruszać kursorem Decka swoją myszą. Esc oddaje kursor.",
-    padHintLocked: "Twoja mysz rusza kursorem Decka. Esc oddaje kursor.",
+    padHintLocked: "Twoja mysz i klawiatura sterują Deckiem. Esc je oddaje.",
     padHintPhone: "Przesuwaj palcem, aby ruszać kursorem. Stuknij, aby kliknąć, stuknij dwoma palcami dla prawego kliknięcia, przesuwaj dwoma palcami, aby przewijać.",
     sensitivity: "Czułość touchpada",
     mediaPrevious: "Poprzedni",
@@ -194,8 +194,8 @@ const I18N = {
     legendBoxTerm: "Pole",
     legendBox: "pokazuje, co wpisałeś; sprawdzaj na Decku",
     legendPadClickTerm: "Kliknięcie w pole",
-    legendPadClick: "przejmuje mysz, tylko w trakcie sesji",
-    legendPadEsc: "oddaje mysz do PC",
+    legendPadClick: "przejmuje mysz i klawiaturę, tylko w trakcie sesji",
+    legendPadEsc: "oddaje je do PC (samo Esc nie trafia na Decka)",
     legendPadAwayTerm: "Inna zakładka, okno, karta",
     legendPadAway: "też oddają mysz",
     legendPadPhoneTerm: "Telefon",
@@ -837,8 +837,37 @@ function bindPad() {
   });
   document.addEventListener("pointerlockchange", () => {
     pad.locked = document.pointerLockElement === el;
-    if (!pad.locked) releaseMouse();
+    if (!pad.locked) {
+      releaseMouse();
+      releaseHeld();
+    }
     renderPad();
+  });
+
+  // While the mouse is captured the keyboard goes to the Deck too (Esc stays with the browser).
+  document.addEventListener("keydown", (event) => {
+    if (!pad.locked || !padActive()) return;
+    if (event.ctrlKey && event.code === "KeyV") return;  // "paste" below sends the PC clipboard
+    event.preventDefault();
+    if (event.repeat || state.typing) return;
+    held.add(event.code);
+    send({ t: "key", code: event.code, down: true });
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) addLog("typed", event.key);
+  });
+  document.addEventListener("keyup", (event) => {
+    if (!pad.locked || !held.has(event.code)) return;
+    event.preventDefault();
+    held.delete(event.code);
+    send({ t: "key", code: event.code, down: false });
+  });
+  document.addEventListener("paste", (event) => {
+    if (!pad.locked || !padActive()) return;
+    event.preventDefault();
+    const text = event.clipboardData.getData("text/plain");
+    held.clear();
+    if (!text) return;
+    sendText(text, false, false, false);
+    addLog("pasted", text);
   });
   document.addEventListener("mousemove", (event) => {
     if (pad.locked && padActive()) queuePad(event.movementX, event.movementY);
