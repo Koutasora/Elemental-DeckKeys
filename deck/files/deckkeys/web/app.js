@@ -28,8 +28,11 @@ const I18N = {
     tabLive: "Live",
     livePlaceholder: "Click here to type on the Deck",
     liveCapturing: "Keys go to the Deck. Click outside the box to stop.",
-    liveHint: "Ctrl+V and Ctrl+Shift+V type the PC clipboard. Browser shortcuts such as Ctrl+W or Ctrl+T are not sent.",
-    previewHint: "The box shows what you typed here, not what is on the Deck. They can differ (cursor moved on the Deck, autocomplete, undo), so check on the Deck.",
+    legend: "Legend",
+    legendPaste: "type the PC clipboard",
+    legendBrowser: "stay in the browser",
+    legendBoxTerm: "Box",
+    legendBox: "shows what you typed; check it on the Deck",
     clearPreview: "Clear preview",
     hideTyped: "Hide typed text",
     actTyping: "Typing",
@@ -112,8 +115,11 @@ const I18N = {
     tabLive: "Na żywo",
     livePlaceholder: "Kliknij tutaj, aby pisać na Decku",
     liveCapturing: "Klawisze trafiają na Decka. Kliknij poza polem, aby przestać.",
-    liveHint: "Ctrl+V i Ctrl+Shift+V wpisują schowek z PC. Skróty przeglądarki, np. Ctrl+W czy Ctrl+T, nie są przesyłane.",
-    previewHint: "Pole pokazuje to, co wpisałeś tutaj, a nie zawartość Decka. Mogą się różnić (kursor przesunięty na Decku, podpowiedzi, cofanie), więc sprawdzaj na Decku.",
+    legend: "Legenda",
+    legendPaste: "wpisuje schowek z PC",
+    legendBrowser: "zostają w przeglądarce",
+    legendBoxTerm: "Pole",
+    legendBox: "pokazuje, co wpisałeś; sprawdzaj na Decku",
     clearPreview: "Wyczyść podgląd",
     hideTyped: "Ukryj wpisywany tekst",
     actTyping: "Pisanie",
@@ -741,6 +747,8 @@ function bind() {
     logEntries.length = 0;
     renderLog();
   });
+  $("legend").open = store.get("legendOpen", true);
+  $("legend").addEventListener("toggle", () => store.set("legendOpen", $("legend").open));
   $("log-box").open = store.get("logOpen", false);
   $("log-box").addEventListener("toggle", () => store.set("logOpen", $("log-box").open));
   $("tab-text").addEventListener("click", () => selectTab("text"));

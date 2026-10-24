@@ -70,8 +70,17 @@
         <label class="check"><input type="checkbox" id="hide-typed"> <span data-i18n="hideTyped"></span></label>
         <button id="preview-clear" type="button" data-i18n="clearPreview"></button>
       </div>
-      <p class="hint" data-i18n="previewHint"></p>
-      <p class="hint" data-i18n="liveHint"></p>
+      <details id="legend" class="legend">
+        <summary data-i18n="legend"></summary>
+        <dl>
+          <dt><kbd>Ctrl+V</kbd>, <kbd>Ctrl+Shift+V</kbd></dt>
+          <dd data-i18n="legendPaste"></dd>
+          <dt><kbd>Ctrl+W</kbd>, <kbd>Ctrl+T</kbd></dt>
+          <dd data-i18n="legendBrowser"></dd>
+          <dt data-i18n="legendBoxTerm"></dt>
+          <dd data-i18n="legendBox"></dd>
+        </dl>
+      </details>
     </div>
 
     <div id="progress" class="row" hidden>

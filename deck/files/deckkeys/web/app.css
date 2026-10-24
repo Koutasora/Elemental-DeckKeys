@@ -157,6 +157,33 @@ textarea {
   outline-offset: 0;
 }
 
+.legend {
+  margin: 8px 0;
+  max-width: 520px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.legend summary { cursor: pointer; }
+
+.legend dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.legend dt { color: var(--text); }
+.legend dd { margin: 0; }
+
+kbd {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+}
+
 .log { margin: 20px 0; }
 
 .log summary {
