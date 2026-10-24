@@ -525,6 +525,7 @@ function previewMove(key) {
 // A new session starts with an empty preview; the log stays until reload or Clear.
 function endedSession() {
   sessionEnded = true;
+  releaseMouse();
   clearPreview();
   renderPreview();
 }
@@ -877,6 +878,12 @@ function bindPad() {
     pad.touch = null;
   }, { passive: false });
   el.addEventListener("touchcancel", () => { pad.touch = null; });
+
+  // Never keep the mouse when the page is not in front.
+  window.addEventListener("blur", releaseMouse);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) releaseMouse();
+  });
 
   // Buttons under the pad: held down for as long as they are pressed.
   document.querySelectorAll("[data-mouse]").forEach((button) => {
