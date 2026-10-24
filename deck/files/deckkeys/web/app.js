@@ -477,6 +477,7 @@ function selectTab(name) {
   $("panel-text").hidden = name !== "text";
   $("saved-section").hidden = name !== "text";
   $("panel-live").hidden = name !== "live";
+  $("legend").hidden = name !== "live";
   if (name !== "live") releaseHeld();
   render();
 }
@@ -599,6 +600,7 @@ function connect() {
   ws.onclose = (event) => {
     clearInterval(pingTimer);
     ws = null;
+    if (state.session) sessionEnded = true;
     Object.assign(state, { connected: false, session: false, typing: false });
     currentId = null;
     if (event.code === 4000 && (event.reason === "replaced" || event.reason === "forgotten")) {
@@ -626,8 +628,8 @@ function connect() {
 
 function handleMessage(msg) {
   if (msg.t === "state") {
-    Object.assign(state, { session: msg.session, remaining: msg.remaining, typing: msg.typing });
     if (state.session && !msg.session) sessionEnded = true;
+    Object.assign(state, { session: msg.session, remaining: msg.remaining, typing: msg.typing });
     if (msg.reason === "idle") showMessage(t("endedIdle", { n: sessionMinutes() }));
     render();
   } else if (msg.t === "progress" && msg.id === currentId) {
@@ -759,8 +761,8 @@ function bind() {
     logEntries.length = 0;
     renderLog();
   });
-  $("legend").open = store.get("legendOpen", true);
-  $("legend").addEventListener("toggle", () => store.set("legendOpen", $("legend").open));
+  $("legend").open = store.get("legendExpanded", false);
+  $("legend").addEventListener("toggle", () => store.set("legendExpanded", $("legend").open));
   $("log-box").open = store.get("logOpen", false);
   $("log-box").addEventListener("toggle", () => store.set("logOpen", $("log-box").open));
   $("tab-text").addEventListener("click", () => selectTab("text"));
