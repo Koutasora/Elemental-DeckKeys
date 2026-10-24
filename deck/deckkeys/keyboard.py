@@ -18,6 +18,7 @@ UI_DEV_DESTROY = 0x5502
 EV_SYN = 0x00
 EV_KEY = 0x01
 SYN_REPORT = 0
+BUS_USB = 0x03
 BUS_VIRTUAL = 0x06
 
 # struct input_event on 64-bit: timeval (2 x long), type, code, value
@@ -71,7 +72,7 @@ CHARS = _build_char_map()
 
 
 class VirtualKeyboard:
-    def __init__(self, name="Elemental DeckKeys"):
+    def __init__(self, name="Elemental DeckKeys", bus=BUS_VIRTUAL):
         self._fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
         self._pressed = set()
         try:
@@ -79,7 +80,7 @@ class VirtualKeyboard:
             for code in KEY.values():
                 fcntl.ioctl(self._fd, UI_SET_KEYBIT, code)
             # struct uinput_setup: input_id (4 x u16), name[80], ff_effects_max (u32)
-            setup = struct.pack("HHHH80sI", BUS_VIRTUAL, 0x1209, 0xDECC, 1,
+            setup = struct.pack("HHHH80sI", bus, 0x1209, 0xDECC, 1,
                                 name.encode()[:79], 0)
             fcntl.ioctl(self._fd, UI_DEV_SETUP, setup)
             fcntl.ioctl(self._fd, UI_DEV_CREATE)

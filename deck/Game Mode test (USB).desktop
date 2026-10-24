@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Elemental DeckKeys – Game Mode test (USB)
+Comment=Starts the stage 0 keyboard test that keeps running in Game Mode, keyboard reported as USB
+Icon=input-keyboard
+Exec=konsole --hold -e sudo bash /home/deck/deckkeys/game_mode_test.sh usb
+Terminal=false
