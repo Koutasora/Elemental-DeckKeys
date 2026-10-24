@@ -3,3 +3,4 @@ __pycache__/
 deck/data/
 decky-plugin/node_modules/
 decky-plugin/dist/
+release/
