@@ -64,6 +64,13 @@ const I18N = {
     legendBrowser: "stay in the browser",
     legendBoxTerm: "Box",
     legendBox: "shows what you typed; check it on the Deck",
+    legendPadClickTerm: "Click the box",
+    legendPadClick: "takes the mouse, only during a session",
+    legendPadEsc: "gives the mouse back to the PC",
+    legendPadAwayTerm: "Other tab, window or browser tab",
+    legendPadAway: "also give the mouse back",
+    legendPadPhoneTerm: "Phone",
+    legendPadPhone: "tap = click, two fingers = right click or scroll",
     legendGameModeTerm: "Game Mode",
     legendGameMode: "pick text fields with the arrows and Enter; touching them opens the on-screen keyboard",
     clearPreview: "Clear preview",
@@ -186,6 +193,13 @@ const I18N = {
     legendBrowser: "zostają w przeglądarce",
     legendBoxTerm: "Pole",
     legendBox: "pokazuje, co wpisałeś; sprawdzaj na Decku",
+    legendPadClickTerm: "Kliknięcie w pole",
+    legendPadClick: "przejmuje mysz, tylko w trakcie sesji",
+    legendPadEsc: "oddaje mysz do PC",
+    legendPadAwayTerm: "Inna zakładka, okno, karta",
+    legendPadAway: "też oddają mysz",
+    legendPadPhoneTerm: "Telefon",
+    legendPadPhone: "stuknięcie = klik, dwa palce = prawy klik albo przewijanie",
     legendGameModeTerm: "Tryb gry",
     legendGameMode: "wybieraj pola strzałkami i Enterem; dotyk otwiera klawiaturę ekranową",
     clearPreview: "Wyczyść podgląd",
@@ -671,7 +685,9 @@ function selectTab(name) {
   $("panel-text").hidden = name !== "text";
   $("saved-section").hidden = name !== "text";
   $("panel-live").hidden = name !== "live";
-  $("legend").hidden = name !== "live";
+  $("legend").hidden = name !== "live" && name !== "pad";
+  $("legend-live").hidden = name !== "live";
+  $("legend-pad").hidden = name !== "pad";
   $("macros").hidden = name !== "live";
   if (name !== "live") releaseHeld();
   render();
