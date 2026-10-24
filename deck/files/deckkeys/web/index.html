@@ -64,7 +64,13 @@
       <textarea id="live" class="live" rows="6" spellcheck="false" autocomplete="off"
                 autocapitalize="off" data-i18n-placeholder="livePlaceholder"
                 data-i18n-label="tabLive"></textarea>
-      <p id="live-status" class="hint"></p>
+      <div class="row">
+        <span id="live-status" class="hint"></span>
+        <span class="spacer"></span>
+        <label class="check"><input type="checkbox" id="hide-typed"> <span data-i18n="hideTyped"></span></label>
+        <button id="preview-clear" type="button" data-i18n="clearPreview"></button>
+      </div>
+      <p class="hint" data-i18n="previewHint"></p>
       <p class="hint" data-i18n="liveHint"></p>
     </div>
 
@@ -74,6 +80,16 @@
       <button id="stop-btn" type="button" data-i18n="stop"></button>
     </div>
     <p id="message" class="message" hidden></p>
+
+    <details id="log-box" class="log">
+      <summary data-i18n="log"></summary>
+      <div class="row">
+        <span class="hint" data-i18n="logHint"></span>
+        <span class="spacer"></span>
+        <button id="log-clear" type="button" data-i18n="clear"></button>
+      </div>
+      <ol id="log-list" class="log-list"></ol>
+    </details>
 
     <div id="saved-section">
       <h2 data-i18n="saved"></h2>

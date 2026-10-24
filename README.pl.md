@@ -19,6 +19,13 @@ jeszcze do zrobienia. Plan w [SPEC.pl.md](SPEC.pl.md).
    Jeśli żadna przeglądarka nie jest sparowana, instalator od razu pokaże kod parowania.
    Skopiowany folder można potem usunąć.
 
+Albo w Konsole na Decku pobierz i zainstaluj najnowszą wersję jednym poleceniem
+(to samo polecenie aktualizuje istniejącą instalację, sparowanie zostaje):
+
+```
+curl -L https://github.com/Koutasora/Elemental-DeckKeys/archive/refs/heads/main.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys-main/deck/files/install.sh
+```
+
 ## Parowanie przeglądarki
 
 1. Na Decku: menu aplikacji > **Elemental DeckKeys – Pair** (bez hasła).
@@ -37,7 +44,8 @@ Na PC:
 
 - **Rozpocznij sesję**, potem zakładka **Tekst** (wpisz lub wklej, Wyślij) albo **Na żywo**
   (kliknij w pole i pisz).
-- W zakładce Na żywo Ctrl+V i Ctrl+Shift+V wpisują na Decku schowek z PC.
+- W zakładce Na żywo Ctrl+V i Ctrl+Shift+V wpisują na Decku schowek z PC. Pole pokazuje podgląd
+  tego, co wpisałeś (nie zawartość Decka). Log pokazuje każdą akcję; kliknięcie linii kopiuje jej tekst.
 - Sesja kończy się przyciskiem **Zakończ sesję**, zamknięciem karty albo po 10 minutach bez pisania.
 
 ## Odinstalowanie

@@ -146,7 +146,7 @@ textarea {
 .live {
   min-height: 180px;
   cursor: text;
-  caret-color: transparent;
+  caret-color: var(--accent);
 }
 
 .live::placeholder { color: var(--muted); }
@@ -156,6 +156,43 @@ textarea {
   outline: 2px solid var(--accent);
   outline-offset: 0;
 }
+
+.log { margin: 20px 0; }
+
+.log summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 14px;
+}
+
+.log-list:empty { display: none; }
+
+.log-list li {
+  display: flex;
+  gap: 12px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-list li:last-child { border-bottom: 0; }
+.log-list li.copyable { cursor: pointer; }
+.log-list li.copyable:hover { background: var(--bg); }
+.log-list time { color: var(--muted); flex: none; }
+.log-list .label { flex: 1; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.log-list .copied { color: var(--accent); flex: none; }
 
 progress { flex: 1; min-width: 120px; accent-color: var(--accent); }
 

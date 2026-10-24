@@ -19,6 +19,13 @@ is still to come. See [SPEC.md](SPEC.md) for the plan.
    If no browser is paired yet, the installer shows a pairing code right away.
    The copied folder can be deleted afterwards.
 
+Or, in Konsole on the Deck, download and install the latest version in one go
+(the same command updates an existing install, pairing is kept):
+
+```
+curl -L https://github.com/Koutasora/Elemental-DeckKeys/archive/refs/heads/main.tar.gz | tar xz -C /tmp && sudo bash /tmp/Elemental-DeckKeys-main/deck/files/install.sh
+```
+
 ## Pair a browser
 
 1. On the Deck: application menu > **Elemental DeckKeys – Pair** (no password).
@@ -37,7 +44,8 @@ On the PC:
 
 - **Start session**, then the **Text** tab (type or paste, Send) or the **Live** tab
   (click the box and type).
-- In the Live tab Ctrl+V and Ctrl+Shift+V type the PC clipboard on the Deck.
+- In the Live tab Ctrl+V and Ctrl+Shift+V type the PC clipboard on the Deck. The box previews what
+  you typed (not what is on the Deck). The Log lists every action; click a line to copy its text.
 - The session ends with **End session**, by closing the tab or after 10 minutes without typing.
 
 ## Uninstall

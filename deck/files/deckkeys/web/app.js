@@ -27,6 +27,36 @@ const I18N = {
     livePlaceholder: "Click here to type on the Deck",
     liveCapturing: "Keys go to the Deck. Click outside the box to stop.",
     liveHint: "Ctrl+V and Ctrl+Shift+V type the PC clipboard. Browser shortcuts such as Ctrl+W or Ctrl+T are not sent.",
+    previewHint: "The box shows what you typed here, not what is on the Deck. They can differ (cursor moved on the Deck, autocomplete, undo), so check on the Deck.",
+    clearPreview: "Clear preview",
+    hideTyped: "Hide typed text",
+    actTyping: "Typing",
+    actDeleting: "Deleting",
+    actMoving: "Moving cursor",
+    actSelectAll: "Selected all",
+    actCopied: "Copied",
+    actCut: "Cut",
+    actUndo: "Undo",
+    actPasted: "Pasted from PC",
+    log: "Log",
+    logHint: "Click a line with text to copy it.",
+    clear: "Clear",
+    logTyped: "Typed: {text}",
+    logTypedHidden: "Typed ({n} chars)",
+    logSent: "Sent: {text}",
+    logSentHidden: "Sent ({n} chars)",
+    logPasted: "Pasted from PC: {text}",
+    logPastedHidden: "Pasted from PC ({n} chars)",
+    logDeleted: "Deleted ×{n}",
+    logMoved: "Moved cursor ×{n}",
+    logEnter: "Enter",
+    logTab: "Tab",
+    logEscape: "Escape",
+    logSelectAll: "Selected all",
+    logCopied: "Copied (on the Deck)",
+    logCut: "Cut (on the Deck)",
+    logUndo: "Undo",
+    copiedToPc: "Copied",
     enterAtEnd: "Enter at the end",
     clearAfter: "Clear after sending",
     save: "Save",
@@ -79,6 +109,36 @@ const I18N = {
     livePlaceholder: "Kliknij tutaj, aby pisać na Decku",
     liveCapturing: "Klawisze trafiają na Decka. Kliknij poza polem, aby przestać.",
     liveHint: "Ctrl+V i Ctrl+Shift+V wpisują schowek z PC. Skróty przeglądarki, np. Ctrl+W czy Ctrl+T, nie są przesyłane.",
+    previewHint: "Pole pokazuje to, co wpisałeś tutaj, a nie zawartość Decka. Mogą się różnić (kursor przesunięty na Decku, podpowiedzi, cofanie), więc sprawdzaj na Decku.",
+    clearPreview: "Wyczyść podgląd",
+    hideTyped: "Ukryj wpisywany tekst",
+    actTyping: "Pisanie",
+    actDeleting: "Kasowanie",
+    actMoving: "Przesuwanie kursora",
+    actSelectAll: "Zaznaczono wszystko",
+    actCopied: "Skopiowano",
+    actCut: "Wycięto",
+    actUndo: "Cofnij",
+    actPasted: "Wklejono z PC",
+    log: "Log",
+    logHint: "Kliknij linię z tekstem, aby ją skopiować.",
+    clear: "Wyczyść",
+    logTyped: "Wpisano: {text}",
+    logTypedHidden: "Wpisano ({n} znaków)",
+    logSent: "Wysłano: {text}",
+    logSentHidden: "Wysłano ({n} znaków)",
+    logPasted: "Wklejono z PC: {text}",
+    logPastedHidden: "Wklejono z PC ({n} znaków)",
+    logDeleted: "Skasowano ×{n}",
+    logMoved: "Przesunięto kursor ×{n}",
+    logEnter: "Enter",
+    logTab: "Tab",
+    logEscape: "Escape",
+    logSelectAll: "Zaznaczono wszystko",
+    logCopied: "Skopiowano (na Decku)",
+    logCut: "Wycięto (na Decku)",
+    logUndo: "Cofnij",
+    copiedToPc: "Skopiowano",
     enterAtEnd: "Enter na końcu",
     clearAfter: "Wyczyść po wysłaniu",
     save: "Zapisz",
@@ -139,6 +199,10 @@ let currentId = null;
 let currentFromField = false;
 let tab = "text";
 const held = new Set();
+const preview = { text: "", cursor: 0, all: false };
+const logEntries = [];
+let lastAction = "";
+let actionTimer = null;
 const state = { connected: false, session: false, remaining: 0, typing: false };
 
 function t(key, vars = {}) {
@@ -159,6 +223,7 @@ function applyLanguage() {
   });
   render();
   renderSaved();
+  renderLog();
 }
 
 function applyTheme() {
@@ -213,8 +278,169 @@ function render() {
   $("live").classList.toggle("capturing", capturing);
   let liveStatus = "";
   if (tab === "live" && state.connected && !state.session) liveStatus = t("no_session");
-  else if (capturing) liveStatus = t("liveCapturing");
+  else if (capturing) liveStatus = lastAction || t("liveCapturing");
   $("live-status").textContent = liveStatus;
+}
+
+// --- Live preview, action and log ----------------------------------------
+
+function hidden() {
+  return $("hide-typed").checked;
+}
+
+function showAction(key) {
+  lastAction = t(key);
+  clearTimeout(actionTimer);
+  actionTimer = setTimeout(() => {
+    lastAction = "";
+    render();
+  }, 1500);
+  render();
+}
+
+function renderPreview() {
+  const live = $("live");
+  live.value = hidden() ? preview.text.replace(/[^\n]/g, "•") : preview.text;
+  if (preview.all) live.setSelectionRange(0, live.value.length);
+  else live.setSelectionRange(preview.cursor, preview.cursor);
+}
+
+function previewInsert(text) {
+  if (preview.all) Object.assign(preview, { text: "", cursor: 0, all: false });
+  preview.text = preview.text.slice(0, preview.cursor) + text + preview.text.slice(preview.cursor);
+  preview.cursor += text.length;
+}
+
+function previewDelete(forward) {
+  if (preview.all) {
+    Object.assign(preview, { text: "", cursor: 0, all: false });
+  } else if (forward) {
+    preview.text = preview.text.slice(0, preview.cursor) + preview.text.slice(preview.cursor + 1);
+  } else if (preview.cursor > 0) {
+    preview.text = preview.text.slice(0, preview.cursor - 1) + preview.text.slice(preview.cursor);
+    preview.cursor -= 1;
+  }
+}
+
+function previewMove(key) {
+  const { text } = preview;
+  let c = preview.cursor;
+  if (preview.all) c = key === "ArrowLeft" || key === "Home" ? 0 : text.length;
+  else if (key === "ArrowLeft") c = Math.max(0, c - 1);
+  else if (key === "ArrowRight") c = Math.min(text.length, c + 1);
+  else if (key === "Home") c = text.lastIndexOf("\n", c - 1) + 1;
+  else if (key === "End") c = text.indexOf("\n", c) === -1 ? text.length : text.indexOf("\n", c);
+  preview.cursor = c;
+  preview.all = false;
+}
+
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+
+function addLog(kind, payload = null) {
+  const last = logEntries[logEntries.length - 1];
+  if (last && last.kind === kind && (kind === "typed" || kind === "deleted" || kind === "moved")) {
+    if (kind === "typed") last.payload += payload;
+    else last.count += 1;
+  } else {
+    const now = new Date();
+    logEntries.push({
+      kind, payload, count: 1,
+      time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+    });
+    if (logEntries.length > 100) logEntries.shift();
+  }
+  renderLog();
+}
+
+function logLabel(entry) {
+  const text = entry.payload;
+  const withText = { typed: "logTyped", sent: "logSent", pasted: "logPasted" }[entry.kind];
+  if (withText) {
+    return hidden() ? t(withText + "Hidden", { n: text.length }) : t(withText, { text });
+  }
+  const simple = {
+    deleted: "logDeleted", moved: "logMoved", enter: "logEnter", tab: "logTab",
+    escape: "logEscape", selectAll: "logSelectAll", copied: "logCopied", cut: "logCut",
+    undo: "logUndo",
+  }[entry.kind];
+  return t(simple, { n: entry.count });
+}
+
+async function copyToPc(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.append(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  }
+}
+
+function renderLog() {
+  const list = $("log-list");
+  list.replaceChildren();
+  for (const entry of logEntries) {
+    const li = document.createElement("li");
+    const time = document.createElement("time");
+    time.textContent = entry.time;
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = logLabel(entry);
+    li.append(time, label);
+    if (entry.payload) {
+      li.className = "copyable";
+      li.addEventListener("click", async () => {
+        if (!(await copyToPc(entry.payload))) return;
+        const done = document.createElement("span");
+        done.className = "copied";
+        done.textContent = t("copiedToPc");
+        li.append(done);
+        setTimeout(() => done.remove(), 1500);
+      });
+    }
+    list.append(li);
+  }
+  list.scrollTop = list.scrollHeight;
+}
+
+function trackKey(event) {
+  const { key, code } = event;
+  if (event.ctrlKey || event.metaKey) {
+    const shortcut = {
+      KeyA: ["selectAll", "actSelectAll"], KeyC: ["copied", "actCopied"],
+      KeyX: ["cut", "actCut"], KeyZ: ["undo", "actUndo"],
+    }[code];
+    if (!shortcut) return;
+    if (code === "KeyA") preview.all = true;
+    if (code === "KeyX" && preview.all) Object.assign(preview, { text: "", cursor: 0, all: false });
+    addLog(shortcut[0]);
+    showAction(shortcut[1]);
+  } else if (key.length === 1) {
+    previewInsert(key);
+    addLog("typed", key);
+    showAction("actTyping");
+  } else if (key === "Backspace" || key === "Delete") {
+    previewDelete(key === "Delete");
+    addLog("deleted");
+    showAction("actDeleting");
+  } else if (key === "Enter") {
+    previewInsert("\n");
+    addLog("enter");
+  } else if (key === "Tab" || key === "Escape") {
+    addLog(key.toLowerCase());
+  } else if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(key)) {
+    previewMove(key);
+    addLog("moved");
+    showAction("actMoving");
+  }
+  renderPreview();
 }
 
 // --- Tabs and live mode ---------------------------------------------------
@@ -251,6 +477,7 @@ function bindLive() {
     if (event.repeat || state.typing) return;
     held.add(event.code);
     send({ t: "key", code: event.code, down: true });
+    trackKey(event);
   });
   live.addEventListener("keyup", (event) => {
     if (!held.has(event.code)) return;
@@ -263,9 +490,16 @@ function bindLive() {
     if (!liveActive()) return;
     const text = event.clipboardData.getData("text/plain");
     held.clear();
-    if (text) sendText(text, false, false);
+    if (!text) return;
+    sendText(text, false, false, false);
+    previewInsert(text);
+    renderPreview();
+    addLog("pasted", text);
+    showAction("actPasted");
   });
-  live.addEventListener("input", () => { live.value = ""; });
+  // The box only mirrors what was sent; undo anything the browser changed itself.
+  live.addEventListener("input", renderPreview);
+  live.addEventListener("mouseup", renderPreview);
   live.addEventListener("focus", render);
   live.addEventListener("blur", () => {
     releaseHeld();
@@ -385,7 +619,7 @@ function handleMessage(msg) {
   }
 }
 
-function sendText(text, fromField = false, withEnter = $("enter").checked) {
+function sendText(text, fromField = false, withEnter = $("enter").checked, log = true) {
   if (!text || !state.session || state.typing) return;
   showMessage("");
   currentId = nextId++;
@@ -396,6 +630,7 @@ function sendText(text, fromField = false, withEnter = $("enter").checked) {
   $("progress-text").textContent = t("typing", { done: 0, total });
   state.typing = true;
   render();
+  if (log) addLog("sent", text);
   send({ t: "text", id: currentId, text, enter: withEnter, speed: Number(store.get("speed", 100)) });
 }
 
@@ -475,6 +710,22 @@ function bind() {
   $("speed").addEventListener("change", () => store.set("speed", Number($("speed").value)));
   $("forget-btn").addEventListener("click", forget);
 
+  $("hide-typed").checked = store.get("hideTyped", false);
+  $("hide-typed").addEventListener("change", () => {
+    store.set("hideTyped", $("hide-typed").checked);
+    renderPreview();
+    renderLog();
+  });
+  $("preview-clear").addEventListener("click", () => {
+    Object.assign(preview, { text: "", cursor: 0, all: false });
+    renderPreview();
+  });
+  $("log-clear").addEventListener("click", () => {
+    logEntries.length = 0;
+    renderLog();
+  });
+  $("log-box").open = store.get("logOpen", false);
+  $("log-box").addEventListener("toggle", () => store.set("logOpen", $("log-box").open));
   $("tab-text").addEventListener("click", () => selectTab("text"));
   $("tab-live").addEventListener("click", () => selectTab("live"));
   bindLive();
