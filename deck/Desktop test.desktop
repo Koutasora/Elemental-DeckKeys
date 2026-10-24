@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Elemental DeckKeys – Desktop test
+Comment=Types the stage 0 test text after 10 seconds
+Icon=input-keyboard
+Exec=konsole --hold -e sudo python3 /home/deck/deckkeys/keyboard_test.py
+Terminal=false
