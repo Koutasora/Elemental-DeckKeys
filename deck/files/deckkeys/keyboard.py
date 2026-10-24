@@ -1,4 +1,4 @@
-"""Virtual keyboard on top of /dev/uinput, standard library only.
+"""Virtual keyboard and mouse on top of /dev/uinput, standard library only.
 
 Requires root (or write access to /dev/uinput).
 """
@@ -11,12 +11,19 @@ import time
 # ioctl numbers from <linux/uinput.h>
 UI_SET_EVBIT = 0x40045564
 UI_SET_KEYBIT = 0x40045565
+UI_SET_RELBIT = 0x40045566
 UI_DEV_SETUP = 0x405C5503
 UI_DEV_CREATE = 0x5501
 UI_DEV_DESTROY = 0x5502
 
 EV_SYN = 0x00
 EV_KEY = 0x01
+EV_REL = 0x02
+REL_X = 0x00
+REL_Y = 0x01
+REL_HWHEEL = 0x06
+REL_WHEEL = 0x08
+BUTTONS = {"left": 0x110, "right": 0x111, "middle": 0x112}
 SYN_REPORT = 0
 BUS_USB = 0x03
 BUS_VIRTUAL = 0x06
@@ -126,7 +133,8 @@ MEDIA_KEYS = {
 
 class VirtualKeyboard:
     # USB by default: with a virtual bus Steam keeps showing its on-screen keyboard.
-    def __init__(self, name="Elemental DeckKeys", bus=BUS_USB, keys=None):
+    def __init__(self, name="Elemental DeckKeys", bus=BUS_USB, keys=None, rels=(),
+                 product=0xDECC, settle=True):
         if keys is None:
             keys = [code for code in KEY.values() if code not in MEDIA_CODES]
         self._fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
@@ -135,16 +143,21 @@ class VirtualKeyboard:
             fcntl.ioctl(self._fd, UI_SET_EVBIT, EV_KEY)
             for code in keys:
                 fcntl.ioctl(self._fd, UI_SET_KEYBIT, code)
+            if rels:
+                fcntl.ioctl(self._fd, UI_SET_EVBIT, EV_REL)
+                for code in rels:
+                    fcntl.ioctl(self._fd, UI_SET_RELBIT, code)
             # struct uinput_setup: input_id (4 x u16), name[80], ff_effects_max (u32)
-            setup = struct.pack("HHHH80sI", bus, 0x1209, 0xDECC, 1,
+            setup = struct.pack("HHHH80sI", bus, 0x1209, product, 1,
                                 name.encode()[:79], 0)
             fcntl.ioctl(self._fd, UI_DEV_SETUP, setup)
             fcntl.ioctl(self._fd, UI_DEV_CREATE)
         except OSError:
             os.close(self._fd)
             raise
-        # Give the system a moment to notice the new device.
-        time.sleep(1.0)
+        if settle:
+            # Give the system a moment to notice the new device.
+            time.sleep(1.0)
 
     def _emit(self, ev_type, code, value):
         os.write(self._fd, _EVENT.pack(0, 0, ev_type, code, value))
@@ -225,3 +238,27 @@ class VirtualKeyboard:
 
     def __exit__(self, *exc):
         self.close()
+
+
+class VirtualMouse(VirtualKeyboard):
+    def __init__(self, name="Elemental DeckKeys Mouse", settle=True):
+        super().__init__(name, keys=BUTTONS.values(),
+                         rels=(REL_X, REL_Y, REL_WHEEL, REL_HWHEEL), product=0xDECD,
+                         settle=settle)
+
+    def move(self, dx, dy):
+        if dx:
+            self._emit(EV_REL, REL_X, dx)
+        if dy:
+            self._emit(EV_REL, REL_Y, dy)
+        self._emit(EV_SYN, SYN_REPORT, 0)
+
+    def wheel(self, vertical, horizontal=0):
+        if vertical:
+            self._emit(EV_REL, REL_WHEEL, vertical)
+        if horizontal:
+            self._emit(EV_REL, REL_HWHEEL, horizontal)
+        self._emit(EV_SYN, SYN_REPORT, 0)
+
+    def button(self, name, down):
+        self.key(BUTTONS[name], down)

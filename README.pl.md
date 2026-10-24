@@ -47,6 +47,8 @@ Na PC:
   (kliknij w pole i pisz).
 - W zakładce Na żywo Ctrl+V i Ctrl+Shift+V wpisują na Decku schowek z PC. Pole pokazuje podgląd
   tego, co wpisałeś (nie zawartość Decka). Log pokazuje każdą akcję; kliknięcie linii kopiuje jej tekst.
+- Zakładka **Touchpad** rusza kursorem Decka: myszą z PC (Esc oddaje kursor) albo palcem na
+  telefonie.
 - Zakładka **Multimedia** ma klawisze multimedialne: poprzedni, odtwórz/pauza, następny, stop,
   głośność i wyciszenie.
 - Sesja kończy się przyciskiem **Zakończ sesję**, zamknięciem karty albo po 10 minutach bez pisania

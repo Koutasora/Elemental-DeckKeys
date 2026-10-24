@@ -13,7 +13,8 @@ import time
 from http.cookies import CookieError, SimpleCookie
 
 from . import __version__, certs, qr
-from .keyboard import BROWSER_CODES, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard
+from .keyboard import (BROWSER_CODES, BUTTONS, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard,
+                       VirtualMouse)
 from .pairing import CODE_LIFETIME, KINDS, DeviceStore, Pairing
 from .websocket import WebSocket, accept_key
 
@@ -136,6 +137,7 @@ class Server:
         self.cert, self.key = certs.ensure_certificate(data_dir)
         self.keyboard = None
         self.media = None
+        self.mouse = None
         self.client = None
         self.last_paired = None
 
@@ -427,7 +429,7 @@ class Server:
         try:
             while not ws.closed:
                 try:
-                    held = any(d is not None and d.any_pressed for d in (self.keyboard, self.media))
+                    held = any(d is not None and d.any_pressed for d in self._devices())
                     timeout = (HEARTBEAT_TIMEOUT if held
                                else QUIET_HEARTBEAT_TIMEOUT)
                     message = await asyncio.wait_for(ws.recv(), timeout)
@@ -520,6 +522,10 @@ class Server:
                 self._release_all()
                 await asyncio.to_thread(self.keyboard.combo, names)
                 client.last_activity = time.monotonic()
+        elif kind in ("move", "wheel", "button"):
+            if client.session:
+                self._mouse_event(kind, msg)
+                client.last_activity = time.monotonic()
         elif kind == "release":
             if not client.typing:
                 self._release_all()
@@ -571,24 +577,49 @@ class Server:
         }))
         await self._send_state(client)
 
+    def _devices(self):
+        return (self.keyboard, self.media, self.mouse)
+
     def _release_all(self):
-        for device in (self.keyboard, self.media):
+        for device in self._devices():
             if device is not None:
                 device.release_all()
+
+    def _mouse_event(self, kind, msg):
+        def number(name, limit):
+            try:
+                return max(-limit, min(limit, int(msg.get(name, 0))))
+            except (TypeError, ValueError):
+                return 0
+
+        if self.mouse is None:
+            return
+        if kind == "move":
+            self.mouse.move(number("dx", 2000), number("dy", 2000))
+        elif kind == "wheel":
+            self.mouse.wheel(number("v", 20), number("h", 20))
+        elif msg.get("b") in BUTTONS:
+            self.mouse.button(msg["b"], bool(msg.get("down")))
 
     # The virtual keyboard is plugged in only for the length of a session. To Steam this
     # looks like a USB keyboard plugged in while it runs, which is when it hides its own.
     async def _attach_devices(self):
         if self.keyboard is None:
-            self.keyboard, self.media = await asyncio.to_thread(lambda: (
-                VirtualKeyboard(),
-                VirtualKeyboard("Elemental DeckKeys Media", keys=MEDIA_CODES)))
+            def create():
+                devices = (VirtualKeyboard(settle=False),
+                           VirtualKeyboard("Elemental DeckKeys Media", keys=MEDIA_CODES,
+                                           settle=False),
+                           VirtualMouse(settle=False))
+                time.sleep(1.0)  # one pause for the system to notice all three
+                return devices
+
+            self.keyboard, self.media, self.mouse = await asyncio.to_thread(create)
 
     def _detach_devices(self):
-        for device in (self.keyboard, self.media):
+        for device in self._devices():
             if device is not None:
                 device.close()
-        self.keyboard = self.media = None
+        self.keyboard = self.media = self.mouse = None
 
     # --- Run ----------------------------------------------------------------
 

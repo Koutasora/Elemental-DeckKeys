@@ -13,7 +13,7 @@ no SSH, nothing to install on the PC.
 - ASCII characters only (US layout).
 - Local network only. No access from the internet.
 
-Out of scope: mouse, screen streaming, running commands on the Deck through the server,
+Out of scope: screen streaming, running commands on the Deck through the server,
 a Stream Deck plugin (maybe later, using the same API as the WebUI).
 
 ## Architecture
@@ -77,6 +77,9 @@ address, so when the page is opened by IP and the IP changes, the device has to 
   shortcuts. Ctrl+V and Ctrl+Shift+V type the PC clipboard on the Deck.
 - **Media**: media keys (previous, play/pause, next, stop, volume −/+, mute) as real key presses,
   so they work system-wide.
+- **Touchpad**: a virtual mouse. On a PC the page takes the mouse (pointer lock) until Esc;
+  on a phone the box works like a laptop touchpad (tap = click, two fingers = scroll or right
+  click). Left, middle and right buttons below. Sensitivity in Settings.
 - **Settings**: theme (light / dark / system), language (automatic by default: Polish for a Polish browser, otherwise English), typing speed, "Forget this device".
 - Status bar: connection, session, time until automatic switch-off.
 - Plain HTML/CSS/JS, no frameworks, no CDN.

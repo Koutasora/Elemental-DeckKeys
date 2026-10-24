@@ -55,6 +55,7 @@
       <button id="tab-text" type="button" role="tab" data-i18n="tabText"></button>
       <button id="tab-live" type="button" role="tab" data-i18n="tabLive"></button>
       <button id="tab-media" type="button" role="tab" data-i18n="tabMedia"></button>
+      <button id="tab-pad" type="button" role="tab" data-i18n="tabPad"></button>
       <span class="spacer"></span>
       <label class="check"><input type="checkbox" id="hide-typed"> <span data-i18n="hideTyped"></span></label>
     </div>
@@ -94,6 +95,15 @@
         <button type="button" data-media="volumeup" data-i18n="mediaVolumeUp"></button>
       </div>
       <p id="media-status" class="hint"></p>
+    </div>
+
+    <div id="panel-pad" hidden>
+      <div id="pad" class="pad"><span id="pad-hint"></span></div>
+      <div class="pad-buttons">
+        <button type="button" data-mouse="left" data-i18n="mouseLeft"></button>
+        <button type="button" data-mouse="middle" data-i18n="mouseMiddle"></button>
+        <button type="button" data-mouse="right" data-i18n="mouseRight"></button>
+      </div>
     </div>
 
     <div id="progress" class="row" hidden>
@@ -175,6 +185,16 @@
           <option value="15">15</option>
           <option value="20">20</option>
           <option value="30">30</option>
+        </select>
+      </label>
+      <label>
+        <span data-i18n="sensitivity"></span>
+        <select id="sensitivity">
+          <option value="0.5">0.5×</option>
+          <option value="1">1×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+          <option value="3">3×</option>
         </select>
       </label>
       <label>

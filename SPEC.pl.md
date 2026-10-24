@@ -13,7 +13,7 @@ bez SSH, bez instalowania czegokolwiek na PC.
 - Tylko znaki ASCII (układ US). Bez polskich znaków.
 - Tylko sieć lokalna. Żadnego dostępu z internetu.
 
-Poza zakresem: mysz, przesyłanie obrazu, wykonywanie poleceń na Decku przez serwer,
+Poza zakresem: przesyłanie obrazu, wykonywanie poleceń na Decku przez serwer,
 wtyczka Stream Deck (może kiedyś, korzystając z tego samego API co WebUI).
 
 ## Architektura
@@ -77,6 +77,9 @@ do adresu, więc zmiana IP przy wejściu przez IP wymaga ponownego parowania.
   na Decka jako skróty. Ctrl+V i Ctrl+Shift+V wpisują na Decku tekst ze schowka PC.
 - **Multimedia**: klawisze multimedialne (poprzedni, odtwórz/pauza, następny, stop, ciszej/głośniej,
   wycisz) jako prawdziwe naciśnięcia, więc działają w całym systemie.
+- **Touchpad**: wirtualna mysz. Na PC strona przejmuje mysz (pointer lock) do wciśnięcia Esc;
+  na telefonie pole działa jak touchpad laptopa (stuknięcie = klik, dwa palce = przewijanie albo
+  prawy klik). Pod spodem przyciski lewy, środkowy i prawy. Czułość w Ustawieniach.
 - **Ustawienia**: motyw (jasny / ciemny / systemowy), język (domyślnie automatyczny: polski dla polskiej przeglądarki, inaczej angielski), szybkość wpisywania,
   „Zapomnij to urządzenie”.
 - Pasek stanu: połączenie, sesja, czas do automatycznego wyłączenia.

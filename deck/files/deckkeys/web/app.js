@@ -40,6 +40,14 @@ const I18N = {
     tabText: "Text",
     tabLive: "Live",
     tabMedia: "Media",
+    tabPad: "Touchpad",
+    mouseLeft: "Left",
+    mouseMiddle: "Middle",
+    mouseRight: "Right",
+    padHintPc: "Click here to move the Deck cursor with your mouse. Esc gives the cursor back.",
+    padHintLocked: "Your mouse moves the Deck cursor. Esc gives it back.",
+    padHintPhone: "Move a finger to move the cursor. Tap to click, tap with two fingers for a right click, drag two fingers to scroll.",
+    sensitivity: "Touchpad sensitivity",
     mediaPrevious: "Previous",
     mediaPlayPause: "Play/Pause",
     mediaNext: "Next",
@@ -154,6 +162,14 @@ const I18N = {
     tabText: "Tekst",
     tabLive: "Na żywo",
     tabMedia: "Multimedia",
+    tabPad: "Touchpad",
+    mouseLeft: "Lewy",
+    mouseMiddle: "Środkowy",
+    mouseRight: "Prawy",
+    padHintPc: "Kliknij tutaj, aby ruszać kursorem Decka swoją myszą. Esc oddaje kursor.",
+    padHintLocked: "Twoja mysz rusza kursorem Decka. Esc oddaje kursor.",
+    padHintPhone: "Przesuwaj palcem, aby ruszać kursorem. Stuknij, aby kliknąć, stuknij dwoma palcami dla prawego kliknięcia, przesuwaj dwoma palcami, aby przewijać.",
+    sensitivity: "Czułość touchpada",
     mediaPrevious: "Poprzedni",
     mediaPlayPause: "Odtwórz/Pauza",
     mediaNext: "Następny",
@@ -357,7 +373,10 @@ function render() {
   const canSend = state.connected && state.session && !state.typing;
   $("send-btn").disabled = !canSend;
   document.querySelectorAll("#saved .send").forEach((b) => { b.disabled = !canSend; });
-  document.querySelectorAll("[data-media], [data-macro]").forEach((b) => { b.disabled = !canSend; });
+  document.querySelectorAll("[data-media], [data-macro], [data-mouse]").forEach((b) => {
+    b.disabled = !canSend;
+  });
+  renderPad();
   $("progress").hidden = !state.typing;
 
   const capturing = liveActive();
@@ -515,7 +534,7 @@ function sessionMinutes() {
   return [5, 10, 15, 20, 30].includes(minutes) ? minutes : 10;
 }
 
-function pad(n) {
+function twoDigits(n) {
   return String(n).padStart(2, "0");
 }
 
@@ -533,7 +552,7 @@ function addLog(kind, payload = null) {
     const now = new Date();
     logEntries.push({
       kind, payload: secret ? null : payload, length, count: 1, hidden: secret,
-      time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+      time: `${twoDigits(now.getHours())}:${twoDigits(now.getMinutes())}:${twoDigits(now.getSeconds())}`,
     });
     if (logEntries.length > 100) logEntries.shift();
   }
@@ -644,6 +663,9 @@ function selectTab(name) {
   $("tab-text").setAttribute("aria-selected", String(name === "text"));
   $("tab-live").setAttribute("aria-selected", String(name === "live"));
   $("tab-media").setAttribute("aria-selected", String(name === "media"));
+  $("tab-pad").setAttribute("aria-selected", String(name === "pad"));
+  $("panel-pad").hidden = name !== "pad";
+  if (name !== "pad") releaseMouse();
   $("panel-media").hidden = name !== "media";
   $("panel-text").hidden = name !== "text";
   $("saved-section").hidden = name !== "text";
@@ -721,6 +743,153 @@ function bindLive() {
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) live.blur();
+  });
+}
+
+// --- Touchpad --------------------------------------------------------------
+
+const BUTTON_NAMES = ["left", "middle", "right"];
+const pad = { dx: 0, dy: 0, wheel: 0, timer: null, locked: false, held: new Set(), touch: null };
+
+function padActive() {
+  return tab === "pad" && state.session;
+}
+
+function renderPad() {
+  const el = $("pad");
+  el.classList.toggle("capturing", pad.locked);
+  let hint = phoneTyping ? t("padHintPhone") : t("padHintPc");
+  if (state.connected && !state.session) hint = t("no_session");
+  else if (pad.locked) hint = t("padHintLocked");
+  $("pad-hint").textContent = hint;
+}
+
+// Movement is collected and sent at most every 16 ms, whole pixels only.
+function flushPad() {
+  pad.timer = null;
+  const dx = Math.trunc(pad.dx);
+  const dy = Math.trunc(pad.dy);
+  pad.dx -= dx;
+  pad.dy -= dy;
+  if (dx || dy) send({ t: "move", dx, dy });
+  const wheel = Math.trunc(pad.wheel);
+  pad.wheel -= wheel;
+  if (wheel) send({ t: "wheel", v: wheel });
+}
+
+function queuePad(dx, dy, wheel = 0) {
+  const factor = Number(store.get("sensitivity", 1)) * (phoneTyping ? 1.5 : 1);
+  pad.dx += dx * factor;
+  pad.dy += dy * factor;
+  pad.wheel += wheel;
+  if (!pad.timer) pad.timer = setTimeout(flushPad, 16);
+}
+
+function mouseButton(name, down) {
+  if (down) pad.held.add(name);
+  else if (!pad.held.delete(name)) return;
+  send({ t: "button", b: name, down });
+}
+
+function clickButton(name) {
+  mouseButton(name, true);
+  mouseButton(name, false);
+}
+
+function releaseMouse() {
+  for (const name of [...pad.held]) mouseButton(name, false);
+  if (document.pointerLockElement === $("pad")) document.exitPointerLock();
+}
+
+function touchCenter(touches) {
+  let x = 0;
+  let y = 0;
+  for (const touch of touches) {
+    x += touch.clientX;
+    y += touch.clientY;
+  }
+  return { x: x / touches.length, y: y / touches.length };
+}
+
+function bindPad() {
+  const el = $("pad");
+
+  // PC: the browser hands the mouse to the page until Esc.
+  el.addEventListener("click", () => {
+    if (padActive() && !phoneTyping && !pad.locked) el.requestPointerLock();
+  });
+  document.addEventListener("pointerlockchange", () => {
+    pad.locked = document.pointerLockElement === el;
+    if (!pad.locked) releaseMouse();
+    renderPad();
+  });
+  document.addEventListener("mousemove", (event) => {
+    if (pad.locked && padActive()) queuePad(event.movementX, event.movementY);
+  });
+  document.addEventListener("mousedown", (event) => {
+    if (!pad.locked || !padActive() || !BUTTON_NAMES[event.button]) return;
+    event.preventDefault();
+    mouseButton(BUTTON_NAMES[event.button], true);
+  });
+  document.addEventListener("mouseup", (event) => {
+    if (pad.locked && BUTTON_NAMES[event.button]) mouseButton(BUTTON_NAMES[event.button], false);
+  });
+  document.addEventListener("wheel", (event) => {
+    if (!pad.locked || !padActive()) return;
+    event.preventDefault();
+    // One notch is about 100 px (or 3 lines); wheel up scrolls up.
+    queuePad(0, 0, -event.deltaY / (event.deltaMode === 1 ? 3 : 100));
+  }, { passive: false });
+  document.addEventListener("contextmenu", (event) => {
+    if (pad.locked) event.preventDefault();
+  });
+
+  // Phone: one finger moves, a tap clicks, two fingers scroll or right-click.
+  el.addEventListener("touchstart", (event) => {
+    if (!padActive()) return;
+    event.preventDefault();
+    const center = touchCenter(event.touches);
+    if (!pad.touch) pad.touch = { start: performance.now(), moved: 0, fingers: 0 };
+    Object.assign(pad.touch, center, {
+      fingers: Math.max(pad.touch.fingers, event.touches.length),
+    });
+  }, { passive: false });
+  el.addEventListener("touchmove", (event) => {
+    if (!padActive() || !pad.touch) return;
+    event.preventDefault();
+    const center = touchCenter(event.touches);
+    const dx = center.x - pad.touch.x;
+    const dy = center.y - pad.touch.y;
+    Object.assign(pad.touch, center);
+    pad.touch.moved += Math.abs(dx) + Math.abs(dy);
+    if (event.touches.length >= 2) queuePad(0, 0, dy / 25);
+    else queuePad(dx, dy);
+  }, { passive: false });
+  el.addEventListener("touchend", (event) => {
+    if (!pad.touch) return;
+    event.preventDefault();
+    if (event.touches.length > 0) {
+      Object.assign(pad.touch, touchCenter(event.touches));
+      return;
+    }
+    const tap = performance.now() - pad.touch.start < 250 && pad.touch.moved < 10;
+    if (tap && padActive()) clickButton(pad.touch.fingers >= 2 ? "right" : "left");
+    pad.touch = null;
+  }, { passive: false });
+  el.addEventListener("touchcancel", () => { pad.touch = null; });
+
+  // Buttons under the pad: held down for as long as they are pressed.
+  document.querySelectorAll("[data-mouse]").forEach((button) => {
+    const name = button.dataset.mouse;
+    button.addEventListener("pointerdown", (event) => {
+      if (!padActive()) return;
+      event.preventDefault();
+      mouseButton(name, true);
+    });
+    for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+      button.addEventListener(type, () => mouseButton(name, false));
+    }
+    button.addEventListener("contextmenu", (event) => event.preventDefault());
   });
 }
 
@@ -1043,6 +1212,10 @@ function bind() {
   $("tab-text").addEventListener("click", () => selectTab("text"));
   $("tab-live").addEventListener("click", () => selectTab("live"));
   $("tab-media").addEventListener("click", () => selectTab("media"));
+  $("tab-pad").addEventListener("click", () => selectTab("pad"));
+  $("sensitivity").value = String(store.get("sensitivity", 1));
+  $("sensitivity").addEventListener("change", () => store.set("sensitivity", Number($("sensitivity").value)));
+  bindPad();
   document.querySelectorAll("[data-media]").forEach((button) => {
     button.addEventListener("click", () => {
       send({ t: "media", key: button.dataset.media });
@@ -1073,5 +1246,5 @@ $("live").value = "";
 bind();
 updateTextMask();
 applyLanguage();
-selectTab(["text", "live", "media"].includes(store.get("tab", "text")) ? store.get("tab", "text") : "text");
+selectTab(["text", "live", "media", "pad"].includes(store.get("tab", "text")) ? store.get("tab", "text") : "text");
 start();

@@ -236,6 +236,38 @@ kbd {
   .media { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+.pad {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 280px;
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pad.capturing { border: 2px solid var(--accent); color: var(--text); }
+
+.pad-buttons {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pad-buttons button { padding: 16px 8px; touch-action: none; }
+
+@media (max-height: 500px) {
+  .pad { height: 160px; }
+}
+
 .log { margin: 20px 0; }
 
 .log summary {
@@ -318,13 +350,17 @@ progress { flex: 1; min-width: 120px; accent-color: var(--accent); }
 @media (max-width: 520px) {
   .bar { flex-wrap: wrap; }
   .status { order: 3; flex-basis: 100%; }
+  .tabs { gap: 0; }
+  .tabs button { padding-left: 9px; padding-right: 9px; }
+  .tabs .spacer { display: none; }
+  .tabs .check { order: 2; flex-basis: 100%; padding: 8px 0; }
 }
 
 /* Touch screens: bigger targets. */
 @media (pointer: coarse) {
   button, select, input:not([type="checkbox"]) { min-height: 44px; }
   .check input { width: 22px; height: 22px; }
-  .tabs button { padding: 10px 14px; }
+  .tabs button { padding-top: 10px; padding-bottom: 10px; }
 }
 
 /* Phones held sideways: keep the boxes low so the buttons stay on screen. */
