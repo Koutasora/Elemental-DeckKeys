@@ -147,7 +147,7 @@ function t(key, vars = {}) {
 }
 
 function applyLanguage() {
-  const setting = store.get("language", "auto");
+  const setting = store.get("language", "en");
   lang = setting === "auto" ? (navigator.language.toLowerCase().startsWith("pl") ? "pl" : "en") : setting;
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
@@ -469,7 +469,7 @@ function bind() {
   $("settings-close").addEventListener("click", () => show(previousView));
   $("theme").value = store.get("theme", "system");
   $("theme").addEventListener("change", () => { store.set("theme", $("theme").value); applyTheme(); });
-  $("language").value = store.get("language", "auto");
+  $("language").value = store.get("language", "en");
   $("language").addEventListener("change", () => { store.set("language", $("language").value); applyLanguage(); });
   $("speed").value = String(store.get("speed", 100));
   $("speed").addEventListener("change", () => store.set("speed", Number($("speed").value)));
