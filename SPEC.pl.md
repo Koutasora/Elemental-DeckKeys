@@ -55,12 +55,13 @@ Deck puszcza wszystkie wciśnięte klawisze.
    U siebie trzyma tylko skrót SHA-256 klucza.
 4. Lista sparowanych urządzeń w panelach z opcją „Usuń” (działa od razu).
 
-Adres domyślny: `https://steamdeck.local:8443` (pokazywany także IP). Klucz jest przypisany
+Adres domyślny: `https://steamdeck.local` (pokazywany także IP). Klucz jest przypisany
 do adresu, więc zmiana IP przy wejściu przez IP wymaga ponownego parowania.
 
 ## WebUI
 
-- **Tekst**: pole wielowierszowe, „Enter na końcu”, „Wyślij” (Ctrl+Enter), postęp
+- **Tekst**: pole wielowierszowe, „Enter na końcu”, „Wyczyść po wysłaniu” (domyślnie włączone,
+  tylko gdy cały tekst się wpisał), „Wyślij” (Ctrl+Enter), postęp
   i „Przerwij” przy długim tekście. „Zapisane” fragmenty dodawane tylko ręcznie
   (przechowywane w przeglądarce na PC).
 - **Na żywo**: pole „Kliknij tutaj, aby pisać na Decku”, ramka w kolorze akcentu, gdy
@@ -72,7 +73,7 @@ do adresu, więc zmiana IP przy wejściu przez IP wymaga ponownego parowania.
 - Zwykły HTML/CSS/JS, bez frameworków i bez CDN.
 - Wygląd: czytelny, kontrastowy, jeden kolor akcentu, bez ozdobników.
 
-Na PC uruchamiane z zakładki albo skrótu `msedge --app=https://steamdeck.local:8443`.
+Na PC uruchamiane z zakładki albo skrótu `msedge --app=https://steamdeck.local`.
 
 ## Wpisywanie
 

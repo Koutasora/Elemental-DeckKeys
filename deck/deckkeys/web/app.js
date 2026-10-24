@@ -23,6 +23,7 @@ const I18N = {
     endsIn: "Ends in {time}",
     textLabel: "Text to type on the Deck",
     enterAtEnd: "Enter at the end",
+    clearAfter: "Clear after sending",
     save: "Save",
     send: "Send",
     sendHint: "Ctrl+Enter sends. ASCII characters only.",
@@ -69,6 +70,7 @@ const I18N = {
     endsIn: "Wyłączy się za {time}",
     textLabel: "Tekst do wpisania na Decku",
     enterAtEnd: "Enter na końcu",
+    clearAfter: "Wyczyść po wysłaniu",
     save: "Zapisz",
     send: "Wyślij",
     sendHint: "Ctrl+Enter wysyła. Tylko znaki ASCII.",
@@ -124,6 +126,7 @@ let reconnectTimer = null;
 let replaced = false;
 let nextId = 1;
 let currentId = null;
+let currentFromField = false;
 const state = { connected: false, session: false, remaining: 0, typing: false };
 
 function t(key, vars = {}) {
@@ -293,6 +296,7 @@ function handleMessage(msg) {
     $("progress-text").textContent = t("typing", { done: msg.done, total: msg.total });
   } else if (msg.t === "typed" && msg.id === currentId) {
     currentId = null;
+    if (currentFromField && !msg.stopped && $("clear").checked) $("text").value = "";
     if (msg.skipped) showMessage(t("skipped", { chars: msg.skipped }), true);
     else if (msg.stopped) showMessage(t("stopped"));
   } else if (msg.t === "error") {
@@ -300,10 +304,11 @@ function handleMessage(msg) {
   }
 }
 
-function sendText(text) {
+function sendText(text, fromField = false) {
   if (!text || !state.session || state.typing) return;
   showMessage("");
   currentId = nextId++;
+  currentFromField = fromField;
   const total = text.length + ($("enter").checked ? 1 : 0);
   $("progress-bar").max = total;
   $("progress-bar").value = 0;
@@ -365,17 +370,19 @@ function bind() {
     if (replaced) connect();
     else send({ t: state.session ? "end" : "start" });
   });
-  $("send-btn").addEventListener("click", () => sendText($("text").value));
+  $("send-btn").addEventListener("click", () => sendText($("text").value, true));
   $("save-btn").addEventListener("click", saveCurrent);
   $("stop-btn").addEventListener("click", () => send({ t: "stop" }));
   $("text").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && event.ctrlKey) {
       event.preventDefault();
-      sendText($("text").value);
+      sendText($("text").value, true);
     }
   });
   $("enter").checked = store.get("enter", false);
   $("enter").addEventListener("change", () => store.set("enter", $("enter").checked));
+  $("clear").checked = store.get("clear", true);
+  $("clear").addEventListener("change", () => store.set("clear", $("clear").checked));
 
   $("settings-btn").addEventListener("click", () => show(view === "settings" ? previousView : "settings"));
   $("settings-close").addEventListener("click", () => show(previousView));

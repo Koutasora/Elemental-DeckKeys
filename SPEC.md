@@ -55,12 +55,13 @@ the Deck releases all held keys.
    The Deck stores only the SHA-256 hash of the key.
 4. Both panels list paired devices with a "Remove" button (takes effect immediately).
 
-Default address: `https://steamdeck.local:8443` (the IP is shown too). The key is bound to the
+Default address: `https://steamdeck.local` (the IP is shown too). The key is bound to the
 address, so when the page is opened by IP and the IP changes, the device has to pair again.
 
 ## WebUI
 
-- **Text**: multi-line field, "Enter at the end", "Send" (Ctrl+Enter), progress and "Stop"
+- **Text**: multi-line field, "Enter at the end", "Clear after sending" (on by default, only
+  when the whole text was typed), "Send" (Ctrl+Enter), progress and "Stop"
   for long text. "Saved" snippets are added manually only (stored in the PC browser).
 - **Live**: a "Click here to type on the Deck" area with an accent-colored border while it
   captures. Sends physical keys (`KeyboardEvent.code`). Ctrl+X and Ctrl+C go to the Deck as
@@ -70,7 +71,7 @@ address, so when the page is opened by IP and the IP changes, the device has to 
 - Plain HTML/CSS/JS, no frameworks, no CDN.
 - Look: readable, high contrast, one accent color, no decoration.
 
-On the PC it is opened from a bookmark or a `msedge --app=https://steamdeck.local:8443` shortcut.
+On the PC it is opened from a bookmark or a `msedge --app=https://steamdeck.local` shortcut.
 
 ## Typing
 

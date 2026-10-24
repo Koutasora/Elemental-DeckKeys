@@ -365,9 +365,10 @@ class Server:
         host = socket.gethostname()
         ip = lan_address()
         print("Elemental DeckKeys is running.", flush=True)
-        print(f"  https://{host}.local:{self.port}", flush=True)
+        suffix = "" if self.port == 443 else f":{self.port}"
+        print(f"  https://{host}.local{suffix}", flush=True)
         if ip:
-            print(f"  https://{ip}:{self.port}", flush=True)
+            print(f"  https://{ip}{suffix}", flush=True)
         print(f"  Certificate: {certs.fingerprint(self.cert)}", flush=True)
         if pair:
             code = self.pairing.open()
