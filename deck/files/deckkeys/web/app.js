@@ -604,9 +604,8 @@ function twoDigits(n) {
   return String(n).padStart(2, "0");
 }
 
-// Things the log does not list (mouse clicks, media keys) still end the current line,
-// and so does a pause: the Deck may have changed field in between.
-const LOG_PAUSE = 2000;
+// Things the log does not list (mouse clicks, media keys) still end the current line:
+// the Deck may have changed field in between.
 let logBreak = false;
 
 function breakLog() {
@@ -616,7 +615,7 @@ function breakLog() {
 function addLog(kind, payload = null) {
   const last = logEntries[logEntries.length - 1];
   const grouped = ["typed", "deleted", "moved", "enter", "tab", "escape"];
-  const continues = last && !logBreak && Date.now() - last.at < LOG_PAUSE;
+  const continues = last && !logBreak;
   logBreak = false;
   // Text typed while "Hide typed text" is on is never stored: only its length is kept.
   const secret = hidden() && payload !== null;
@@ -625,11 +624,10 @@ function addLog(kind, payload = null) {
     if (kind === "typed" && !secret) last.payload += payload;
     last.length += length;
     last.count += 1;
-    last.at = Date.now();
   } else {
     const now = new Date();
     logEntries.push({
-      kind, payload: secret ? null : payload, length, count: 1, hidden: secret, at: Date.now(),
+      kind, payload: secret ? null : payload, length, count: 1, hidden: secret,
       time: `${twoDigits(now.getHours())}:${twoDigits(now.getMinutes())}:${twoDigits(now.getSeconds())}`,
     });
     if (logEntries.length > 100) logEntries.shift();
