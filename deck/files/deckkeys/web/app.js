@@ -66,7 +66,7 @@ const I18N = {
     legendBox: "shows what you typed; check it on the Deck",
     legendPadClickTerm: "Click the box",
     legendPadClick: "takes the mouse and the keyboard, only during a session",
-    legendPadEsc: "gives them back to the PC (Esc itself does not reach the Deck)",
+    legendPadEsc: "gives them back to the PC; to send Esc to the Deck use the Esc button",
     legendPadAwayTerm: "Other tab, window or browser tab",
     legendPadAway: "also give the mouse back",
     legendPadPhoneTerm: "Phone",
@@ -195,7 +195,7 @@ const I18N = {
     legendBox: "pokazuje, co wpisałeś; sprawdzaj na Decku",
     legendPadClickTerm: "Kliknięcie w pole",
     legendPadClick: "przejmuje mysz i klawiaturę, tylko w trakcie sesji",
-    legendPadEsc: "oddaje je do PC (samo Esc nie trafia na Decka)",
+    legendPadEsc: "oddaje je do PC; Esc na Decka wysyła przycisk Esc",
     legendPadAwayTerm: "Inna zakładka, okno, karta",
     legendPadAway: "też oddają mysz",
     legendPadPhoneTerm: "Telefon",
@@ -387,7 +387,7 @@ function render() {
   const canSend = state.connected && state.session && !state.typing;
   $("send-btn").disabled = !canSend;
   document.querySelectorAll("#saved .send").forEach((b) => { b.disabled = !canSend; });
-  document.querySelectorAll("[data-media], [data-macro], [data-mouse]").forEach((b) => {
+  document.querySelectorAll("[data-media], [data-macro], [data-mouse], #pad-esc").forEach((b) => {
     b.disabled = !canSend;
   });
   renderPad();
@@ -928,6 +928,14 @@ function bindPad() {
   window.addEventListener("blur", releaseMouse);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) releaseMouse();
+  });
+
+  // Esc never reaches the Deck from the keyboard: the browser keeps it to give the mouse back.
+  $("pad-esc").addEventListener("click", () => {
+    if (!padActive()) return;
+    send({ t: "key", code: "Escape", down: true });
+    send({ t: "key", code: "Escape", down: false });
+    addLog("escape");
   });
 
   // Buttons under the pad: held down for as long as they are pressed.
