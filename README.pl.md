@@ -46,7 +46,8 @@ Na PC:
   (kliknij w pole i pisz).
 - W zakładce Na żywo Ctrl+V i Ctrl+Shift+V wpisują na Decku schowek z PC. Pole pokazuje podgląd
   tego, co wpisałeś (nie zawartość Decka). Log pokazuje każdą akcję; kliknięcie linii kopiuje jej tekst.
-- Sesja kończy się przyciskiem **Zakończ sesję**, zamknięciem karty albo po 10 minutach bez pisania.
+- Sesja kończy się przyciskiem **Zakończ sesję**, zamknięciem karty albo po 10 minutach bez pisania
+  (5–30 minut w Ustawieniach).
 
 ## Odinstalowanie
 

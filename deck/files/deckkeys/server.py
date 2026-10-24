@@ -20,6 +20,7 @@ from .websocket import WebSocket, accept_key
 COOKIE = "deckkeys"
 HEARTBEAT_TIMEOUT = 3
 IDLE_TIMEOUT = 600
+SESSION_MINUTES = (5, 10, 15, 20, 30)
 MAX_TEXT = 20000
 MAX_BODY = 64 * 1024
 MAX_HEAD = 16 * 1024
@@ -115,6 +116,7 @@ class Client:
         self.device_id = device_id
         self.session = False
         self.last_activity = 0.0
+        self.idle_timeout = IDLE_TIMEOUT
         self.typing = None
         self.stop = threading.Event()
 
@@ -305,7 +307,7 @@ class Server:
                     break
                 await self._handle_message(client, message)
                 if (client.session and not client.typing
-                        and time.monotonic() - client.last_activity > IDLE_TIMEOUT):
+                        and time.monotonic() - client.last_activity > client.idle_timeout):
                     await self._end_session(client, "idle")
         finally:
             await self._end_session(client, None, notify=False)
@@ -323,7 +325,8 @@ class Server:
     async def _send_state(self, client, reason=None):
         remaining = 0
         if client.session:
-            remaining = max(0, int(IDLE_TIMEOUT - (time.monotonic() - client.last_activity)))
+            elapsed = time.monotonic() - client.last_activity
+            remaining = max(0, int(client.idle_timeout - elapsed))
         await client.ws.send(json.dumps({
             "t": "state", "session": client.session, "remaining": remaining,
             "typing": client.typing is not None, "reason": reason,
@@ -348,6 +351,8 @@ class Server:
         if kind == "ping":
             await self._send_state(client)
         elif kind == "start":
+            minutes = msg.get("minutes")
+            client.idle_timeout = minutes * 60 if minutes in SESSION_MINUTES else IDLE_TIMEOUT
             client.session = True
             client.last_activity = time.monotonic()
             await self._send_state(client)

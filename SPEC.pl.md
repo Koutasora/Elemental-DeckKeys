@@ -36,7 +36,8 @@ działa dalej, znika tylko panel w menu `...`.
 - **Sesja aktywna**: klawisze od sparowanego urządzenia trafiają na Decka.
 
 Sesja kończy się po: „Zakończ sesję”, zamknięciu karty, zerwaniu połączenia (brak sygnału
-przez 3 s) albo 10 minutach bez pisania. Przy końcu sesji, utracie fokusu lub ukryciu karty
+przez 3 s) albo po ustawionym czasie bez pisania (5, 10, 15, 20 lub 30 minut, domyślnie 10, w Ustawieniach).
+Po zakończeniu sesji przycisk zmienia się na „Kontynuuj sesję”. Przy końcu sesji, utracie fokusu lub ukryciu karty
 Deck puszcza wszystkie wciśnięte klawisze.
 
 ## Bezpieczeństwo

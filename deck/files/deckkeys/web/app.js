@@ -18,6 +18,8 @@ const I18N = {
     pairing_closed: "Pairing is not open or the code expired. Start pairing on the Deck again.",
     pairFailed: "Pairing failed. Check the connection to the Deck.",
     startSession: "Start session",
+    continueSession: "Continue session",
+    sessionLength: "Session ends after this many minutes without typing",
     endSession: "End session",
     reconnect: "Reconnect",
     endsIn: "Ends in {time}",
@@ -69,7 +71,7 @@ const I18N = {
     delete: "Delete",
     skipped: "Not typed (not ASCII): {chars}",
     stopped: "Typing stopped.",
-    endedIdle: "Session ended after 10 minutes without typing.",
+    endedIdle: "Session ended after {n} minutes without typing.",
     no_session: "Start a session first.",
     busy: "Still typing the previous text.",
     theme: "Theme",
@@ -100,6 +102,8 @@ const I18N = {
     pairing_closed: "Parowanie nie jest włączone albo kod wygasł. Włącz parowanie na Decku jeszcze raz.",
     pairFailed: "Parowanie nie powiodło się. Sprawdź połączenie z Deckiem.",
     startSession: "Rozpocznij sesję",
+    continueSession: "Kontynuuj sesję",
+    sessionLength: "Sesja kończy się po tylu minutach bez pisania",
     endSession: "Zakończ sesję",
     reconnect: "Połącz ponownie",
     endsIn: "Wyłączy się za {time}",
@@ -151,7 +155,7 @@ const I18N = {
     delete: "Usuń",
     skipped: "Pominięte (spoza ASCII): {chars}",
     stopped: "Wpisywanie przerwane.",
-    endedIdle: "Sesja zakończona po 10 minutach bez pisania.",
+    endedIdle: "Sesja zakończona po {n} min bez pisania.",
     no_session: "Najpierw rozpocznij sesję.",
     busy: "Trwa wpisywanie poprzedniego tekstu.",
     theme: "Motyw",
@@ -202,6 +206,7 @@ const held = new Set();
 const preview = { text: "", cursor: 0, all: false };
 const logEntries = [];
 let lastAction = "";
+let sessionEnded = false;
 let actionTimer = null;
 const state = { connected: false, session: false, remaining: 0, typing: false };
 
@@ -264,7 +269,8 @@ function render() {
     sessionBtn.textContent = t("reconnect");
     sessionBtn.disabled = false;
   } else {
-    sessionBtn.textContent = state.session ? t("endSession") : t("startSession");
+    sessionBtn.textContent = state.session ? t("endSession")
+      : t(sessionEnded ? "continueSession" : "startSession");
     sessionBtn.disabled = !state.connected;
   }
   $("session-info").textContent = state.session ? t("endsIn", { time: formatTime(state.remaining) }) : "";
@@ -332,6 +338,11 @@ function previewMove(key) {
   else if (key === "End") c = text.indexOf("\n", c) === -1 ? text.length : text.indexOf("\n", c);
   preview.cursor = c;
   preview.all = false;
+}
+
+function sessionMinutes() {
+  const minutes = Number(store.get("sessionMinutes", 10));
+  return [5, 10, 15, 20, 30].includes(minutes) ? minutes : 10;
 }
 
 function pad(n) {
@@ -603,7 +614,8 @@ function connect() {
 function handleMessage(msg) {
   if (msg.t === "state") {
     Object.assign(state, { session: msg.session, remaining: msg.remaining, typing: msg.typing });
-    if (msg.reason === "idle") showMessage(t("endedIdle"));
+    if (state.session && !msg.session) sessionEnded = true;
+    if (msg.reason === "idle") showMessage(t("endedIdle", { n: sessionMinutes() }));
     render();
   } else if (msg.t === "progress" && msg.id === currentId) {
     $("progress-bar").max = msg.total;
@@ -684,7 +696,8 @@ function bind() {
 
   $("session-btn").addEventListener("click", () => {
     if (replaced) connect();
-    else send({ t: state.session ? "end" : "start" });
+    else if (state.session) send({ t: "end" });
+    else send({ t: "start", minutes: sessionMinutes() });
   });
   $("send-btn").addEventListener("click", () => sendText($("text").value, true));
   $("save-btn").addEventListener("click", saveCurrent);
@@ -706,6 +719,10 @@ function bind() {
   $("theme").addEventListener("change", () => { store.set("theme", $("theme").value); applyTheme(); });
   $("language").value = store.get("language", "auto");
   $("language").addEventListener("change", () => { store.set("language", $("language").value); applyLanguage(); });
+  $("session-minutes").value = String(sessionMinutes());
+  $("session-minutes").addEventListener("change", () => {
+    store.set("sessionMinutes", Number($("session-minutes").value));
+  });
   $("speed").value = String(store.get("speed", 100));
   $("speed").addEventListener("change", () => store.set("speed", Number($("speed").value)));
   $("forget-btn").addEventListener("click", forget);

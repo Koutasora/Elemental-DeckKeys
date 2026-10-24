@@ -46,7 +46,8 @@ On the PC:
   (click the box and type).
 - In the Live tab Ctrl+V and Ctrl+Shift+V type the PC clipboard on the Deck. The box previews what
   you typed (not what is on the Deck). The Log lists every action; click a line to copy its text.
-- The session ends with **End session**, by closing the tab or after 10 minutes without typing.
+- The session ends with **End session**, by closing the tab or after 10 minutes without typing
+  (5–30 minutes in Settings).
 
 ## Uninstall
 
