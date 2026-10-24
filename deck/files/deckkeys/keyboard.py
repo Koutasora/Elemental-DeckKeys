@@ -132,6 +132,10 @@ class VirtualKeyboard:
         else:
             self._pressed.discard(code)
 
+    @property
+    def any_pressed(self):
+        return bool(self._pressed)
+
     def release_all(self):
         for code in list(self._pressed):
             self.key(code, False)

@@ -18,7 +18,10 @@ from .pairing import CODE_LIFETIME, DeviceStore, Pairing
 from .websocket import WebSocket, accept_key
 
 COOKIE = "deckkeys"
+# A browser in the background may ping only once a minute. Wait long for it, unless keys
+# are held down: then a dropped connection must release them quickly.
 HEARTBEAT_TIMEOUT = 3
+QUIET_HEARTBEAT_TIMEOUT = 90
 IDLE_TIMEOUT = 600
 SESSION_MINUTES = (5, 10, 15, 20, 30)
 MAX_TEXT = 20000
@@ -300,7 +303,9 @@ class Server:
         try:
             while not ws.closed:
                 try:
-                    message = await asyncio.wait_for(ws.recv(), HEARTBEAT_TIMEOUT)
+                    timeout = (HEARTBEAT_TIMEOUT if self.keyboard.any_pressed
+                               else QUIET_HEARTBEAT_TIMEOUT)
+                    message = await asyncio.wait_for(ws.recv(), timeout)
                 except asyncio.TimeoutError:
                     break
                 if message is None:

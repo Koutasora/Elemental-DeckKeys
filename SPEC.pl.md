@@ -35,8 +35,8 @@ działa dalej, znika tylko panel w menu `...`.
 - **Wyłącznik włączony, brak sesji**: serwer nasłuchuje, klawisze są ignorowane.
 - **Sesja aktywna**: klawisze od sparowanego urządzenia trafiają na Decka.
 
-Sesja kończy się po: „Zakończ sesję”, zamknięciu karty, zerwaniu połączenia (brak sygnału
-przez 3 s) albo po ustawionym czasie bez pisania (5, 10, 15, 20 lub 30 minut, domyślnie 10, w Ustawieniach).
+Sesja kończy się po: „Zakończ sesję”, zamknięciu karty, zerwaniu połączenia (brak sygnału przez 3 s, gdy klawisz jest wciśnięty, inaczej 90 s, bo przeglądarki spowalniają karty w tle)
+albo po ustawionym czasie bez pisania (5, 10, 15, 20 lub 30 minut, domyślnie 10, w Ustawieniach).
 Po zakończeniu sesji przycisk zmienia się na „Kontynuuj sesję”. Przy końcu sesji, utracie fokusu lub ukryciu karty
 Deck puszcza wszystkie wciśnięte klawisze.
 
