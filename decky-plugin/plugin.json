@@ -1,0 +1,11 @@
+{
+  "name": "Elemental DeckKeys",
+  "author": "Koutasora",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["keyboard", "remote"],
+    "description": "Type on the Deck with your PC keyboard over the local network.",
+    "image": ""
+  }
+}

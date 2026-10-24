@@ -124,6 +124,8 @@ textarea {
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
   margin: 16px 0 12px;
   border-bottom: 1px solid var(--border);
@@ -148,6 +150,8 @@ textarea {
   cursor: text;
   caret-color: var(--accent);
 }
+
+.masked { -webkit-text-security: disc; }
 
 .live::placeholder { color: var(--muted); }
 

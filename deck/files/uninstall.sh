@@ -13,4 +13,8 @@ rm -f /etc/systemd/system/elemental-deckkeys.service
 systemctl daemon-reload
 rm -f "$home"/.local/share/applications/elemental-deckkeys-*.desktop
 rm -rf "$home/.local/share/elemental-deckkeys"
+if [ -d "$home/homebrew/plugins/elemental-deckkeys" ]; then
+  rm -rf "$home/homebrew/plugins/elemental-deckkeys"
+  systemctl restart plugin_loader 2>/dev/null || true
+fi
 echo "Elemental DeckKeys removed."

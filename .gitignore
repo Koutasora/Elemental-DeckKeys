@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 deck/data/
+decky-plugin/node_modules/
+decky-plugin/dist/

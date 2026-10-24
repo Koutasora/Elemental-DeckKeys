@@ -81,6 +81,10 @@ class Pairing:
     def close(self):
         self.code = None
 
+    @property
+    def seconds_left(self):
+        return max(0, int(self.expires - time.monotonic())) if self.active else 0
+
     def check(self, code):
         """Returns "ok", "wrong" or "closed". The code is single use."""
         if not self.active:

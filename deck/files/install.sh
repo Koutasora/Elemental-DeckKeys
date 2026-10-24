@@ -58,6 +58,17 @@ entry pair "Pair" "konsole --hold -e python3 $dest/deckkeys_ctl.py pair"
 entry toggle "On/Off" "python3 $dest/deckkeys_ctl.py toggle"
 entry uninstall "Uninstall" "konsole --hold -e sudo bash $dest/uninstall.sh"
 
+# Game Mode panel, only when Decky Loader is installed.
+plugins="$home/homebrew/plugins"
+if [ -d "$plugins" ] && [ -d "$src/decky" ]; then
+  rm -rf "$plugins/elemental-deckkeys"
+  cp -r "$src/decky" "$plugins/elemental-deckkeys"
+  chown -R --reference="$plugins" "$plugins/elemental-deckkeys"
+  chmod -R a+rX "$plugins/elemental-deckkeys"
+  systemctl restart plugin_loader 2>/dev/null || true
+  echo "Decky panel installed."
+fi
+
 systemctl daemon-reload
 systemctl enable elemental-deckkeys >/dev/null 2>&1
 systemctl restart elemental-deckkeys
@@ -73,4 +84,5 @@ done
 echo
 echo "Installed. Elemental DeckKeys starts with the Deck, in Game Mode and Desktop Mode."
 echo "Application menu: Elemental DeckKeys – Pair, On/Off, Uninstall."
+echo "Game Mode: Decky menu > Elemental DeckKeys (when Decky Loader is installed)."
 echo "The installer folder is no longer needed and can be deleted."

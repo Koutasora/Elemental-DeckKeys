@@ -238,9 +238,40 @@ class Server:
                 "active": self.pairing.active, "paired": self.last_paired,
                 "on": self.enabled, "devices": len(self.devices.devices),
             })
+        if path == "/api/local/status" and method == "GET" and request.local():
+            return await self._json(writer, request, 200, self._local_status())
+        if path == "/api/local/devices/remove" and method == "POST" and request.local():
+            try:
+                device_id = str(json.loads(request.body).get("id", ""))
+            except (ValueError, AttributeError):
+                return await self._respond(writer, request, 400)
+            if self.client and self.client.device_id == device_id:
+                await self._drop_client(self.client, "forgotten")
+            self.devices.remove(device_id)
+            return await self._json(writer, request, 200, self._local_status())
         if path == "/ws" and method == "GET":
             return await self._websocket(request, reader, writer)
         await self._respond(writer, request, 404)
+
+    def _local_status(self):
+        """Everything the Decky panel shows. Only served to the Deck itself."""
+        client = self.client
+        return {
+            "on": self.enabled,
+            "client": self.devices.devices.get(client.device_id, {}).get("name") if client else None,
+            "session": bool(client and client.session),
+            "addresses": self.addresses(),
+            "fingerprint": certs.fingerprint(self.cert),
+            "pairing": {
+                "code": self.pairing.code if self.pairing.active else None,
+                "seconds": self.pairing.seconds_left,
+            },
+            "devices": [
+                {"id": device_id, "name": d["name"], "last_seen": d["last_seen"]}
+                for device_id, d in sorted(self.devices.devices.items(),
+                                           key=lambda item: -item[1]["last_seen"])
+            ],
+        }
 
     async def _pair(self, request, writer):
         if not request.same_origin():

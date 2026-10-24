@@ -227,7 +227,9 @@ let currentId = null;
 let currentFromField = false;
 let tab = "text";
 const held = new Set();
-const preview = { text: "", cursor: 0, all: false };
+// flags: one "1"/"0" per character of text, "1" when typed while "Hide typed text" was on.
+const preview = { text: "", flags: "", cursor: 0, all: false };
+let textMasked = false;
 const logEntries = [];
 let lastAction = "";
 let sessionEnded = false;
@@ -321,6 +323,13 @@ function hidden() {
   return $("hide-typed").checked;
 }
 
+function updateTextMask() {
+  const field = $("text");
+  if (field.value === "") textMasked = false;
+  else if (hidden()) textMasked = true;
+  field.classList.toggle("masked", hidden() || textMasked);
+}
+
 function showAction(key) {
   lastAction = t(key);
   clearTimeout(actionTimer);
@@ -333,24 +342,40 @@ function showAction(key) {
 
 function renderPreview() {
   const live = $("live");
-  live.value = hidden() ? preview.text.replace(/[^\n]/g, "•") : preview.text;
+  live.value = [...preview.text]
+    .map((ch, i) => (ch !== "\n" && (hidden() || preview.flags[i] === "1") ? "•" : ch))
+    .join("");
   if (preview.all) live.setSelectionRange(0, live.value.length);
   else live.setSelectionRange(preview.cursor, preview.cursor);
 }
 
+function clearPreview() {
+  Object.assign(preview, { text: "", flags: "", cursor: 0, all: false });
+}
+
 function previewInsert(text) {
-  if (preview.all) Object.assign(preview, { text: "", cursor: 0, all: false });
-  preview.text = preview.text.slice(0, preview.cursor) + text + preview.text.slice(preview.cursor);
+  if (preview.all) clearPreview();
+  const c = preview.cursor;
+  const flags = (hidden() ? "1" : "0").repeat(text.length);
+  preview.text = preview.text.slice(0, c) + text + preview.text.slice(c);
+  preview.flags = preview.flags.slice(0, c) + flags + preview.flags.slice(c);
   preview.cursor += text.length;
 }
 
+function cut(value, from, to) {
+  return value.slice(0, from) + value.slice(to);
+}
+
 function previewDelete(forward) {
+  const c = preview.cursor;
   if (preview.all) {
-    Object.assign(preview, { text: "", cursor: 0, all: false });
+    clearPreview();
   } else if (forward) {
-    preview.text = preview.text.slice(0, preview.cursor) + preview.text.slice(preview.cursor + 1);
-  } else if (preview.cursor > 0) {
-    preview.text = preview.text.slice(0, preview.cursor - 1) + preview.text.slice(preview.cursor);
+    preview.text = cut(preview.text, c, c + 1);
+    preview.flags = cut(preview.flags, c, c + 1);
+  } else if (c > 0) {
+    preview.text = cut(preview.text, c - 1, c);
+    preview.flags = cut(preview.flags, c - 1, c);
     preview.cursor -= 1;
   }
 }
@@ -367,6 +392,13 @@ function previewMove(key) {
   preview.all = false;
 }
 
+// A new session starts with an empty preview; the log stays until reload or Clear.
+function endedSession() {
+  sessionEnded = true;
+  clearPreview();
+  renderPreview();
+}
+
 function sessionMinutes() {
   const minutes = Number(store.get("sessionMinutes", 10));
   return [5, 10, 15, 20, 30].includes(minutes) ? minutes : 10;
@@ -379,13 +411,17 @@ function pad(n) {
 function addLog(kind, payload = null) {
   const last = logEntries[logEntries.length - 1];
   const grouped = ["typed", "deleted", "moved", "enter", "tab", "escape"];
-  if (last && last.kind === kind && grouped.includes(kind)) {
-    if (kind === "typed") last.payload += payload;
-    else last.count += 1;
+  // Text typed while "Hide typed text" is on is never stored: only its length is kept.
+  const secret = hidden() && payload !== null;
+  const length = payload === null ? 0 : payload.length;
+  if (last && last.kind === kind && grouped.includes(kind) && last.hidden === secret) {
+    if (kind === "typed" && !secret) last.payload += payload;
+    last.length += length;
+    last.count += 1;
   } else {
     const now = new Date();
     logEntries.push({
-      kind, payload, count: 1,
+      kind, payload: secret ? null : payload, length, count: 1, hidden: secret,
       time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
     });
     if (logEntries.length > 100) logEntries.shift();
@@ -394,10 +430,11 @@ function addLog(kind, payload = null) {
 }
 
 function logLabel(entry) {
-  const text = entry.payload;
   const withText = { typed: "logTyped", sent: "logSent", pasted: "logPasted" }[entry.kind];
   if (withText) {
-    return hidden() ? t(withText + "Hidden", { n: text.length }) : t(withText, { text });
+    return entry.hidden || hidden()
+      ? t(withText + "Hidden", { n: entry.length })
+      : t(withText, { text: entry.payload });
   }
   const simple = {
     deleted: "logDeleted", moved: "logMoved", enter: "logEnter", tab: "logTab",
@@ -429,7 +466,8 @@ function renderLog() {
   list.replaceChildren();
   const showKeys = $("log-keys").checked;
   for (const entry of logEntries) {
-    if (!entry.payload && !showKeys) continue;
+    const isText = ["typed", "sent", "pasted"].includes(entry.kind);
+    if (!isText && !showKeys) continue;
     const li = document.createElement("li");
     const time = document.createElement("time");
     time.textContent = entry.time;
@@ -462,7 +500,7 @@ function trackKey(event) {
     }[code];
     if (!shortcut) return;
     if (code === "KeyA") preview.all = true;
-    if (code === "KeyX" && preview.all) Object.assign(preview, { text: "", cursor: 0, all: false });
+    if (code === "KeyX" && preview.all) clearPreview();
     addLog(shortcut[0]);
     showAction(shortcut[1]);
   } else if (key.length === 1) {
@@ -621,7 +659,7 @@ function connect() {
   ws.onclose = (event) => {
     clearInterval(pingTimer);
     ws = null;
-    if (state.session) sessionEnded = true;
+    if (state.session) endedSession();
     Object.assign(state, { connected: false, session: false, typing: false });
     currentId = null;
     if (event.code === 4000 && (event.reason === "replaced" || event.reason === "forgotten")) {
@@ -649,7 +687,7 @@ function connect() {
 
 function handleMessage(msg) {
   if (msg.t === "state") {
-    if (state.session && !msg.session) sessionEnded = true;
+    if (state.session && !msg.session) endedSession();
     Object.assign(state, { session: msg.session, remaining: msg.remaining, typing: msg.typing });
     if (msg.reason === "idle") showMessage(t("endedIdle", { n: sessionMinutes() }));
     render();
@@ -659,7 +697,10 @@ function handleMessage(msg) {
     $("progress-text").textContent = t("typing", { done: msg.done, total: msg.total });
   } else if (msg.t === "typed" && msg.id === currentId) {
     currentId = null;
-    if (currentFromField && !msg.stopped && $("clear").checked) $("text").value = "";
+    if (currentFromField && !msg.stopped && $("clear").checked) {
+      $("text").value = "";
+      updateTextMask();
+    }
     if (msg.skipped) showMessage(t("skipped", { chars: msg.skipped }), true);
     else if (msg.stopped) showMessage(t("stopped"));
   } else if (msg.t === "error") {
@@ -766,13 +807,17 @@ function bind() {
   $("hide-typed").checked = store.get("hideTyped", false);
   $("hide-typed").addEventListener("change", () => {
     store.set("hideTyped", $("hide-typed").checked);
+    updateTextMask();
     renderPreview();
     renderLog();
   });
   $("preview-clear").addEventListener("click", () => {
-    Object.assign(preview, { text: "", cursor: 0, all: false });
+    clearPreview();
     renderPreview();
   });
+  // Text field: a field cannot hide only some characters, so anything typed while hidden
+  // keeps the whole field hidden until it is emptied.
+  $("text").addEventListener("input", updateTextMask);
   $("log-keys").checked = store.get("logKeys", false);
   $("log-keys").addEventListener("change", () => {
     store.set("logKeys", $("log-keys").checked);
@@ -813,7 +858,11 @@ async function start() {
 }
 
 applyTheme();
+// Browsers may restore field contents on reload; every page load starts empty.
+$("text").value = "";
+$("live").value = "";
 bind();
+updateTextMask();
 applyLanguage();
 selectTab(["text", "live", "media"].includes(store.get("tab", "text")) ? store.get("tab", "text") : "text");
 start();
