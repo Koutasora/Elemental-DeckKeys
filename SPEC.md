@@ -1,101 +1,100 @@
-# Elemental DeckKeys – specyfikacja
+# Elemental DeckKeys – specification
 
-Pisanie na Steam Decku klawiaturą z PC przez sieć lokalną. Bez podpinania klawiatury,
-bez SSH, bez instalowania czegokolwiek na PC.
+**English** | [Polski](SPEC.pl.md)
 
-## Cel i zakres
+Type on a Steam Deck with your PC keyboard over the local network. No keyboard to plug in,
+no SSH, nothing to install on the PC.
 
-- Konfiguracja konsoli: terminal (Konsole), opcje uruchamiania w Steamie, przeglądarka,
-  pola w launcherach. Granie nie jest celem.
-- Działa w trybie gry i w trybie pulpitu.
-- Tylko znaki ASCII (układ US). Bez polskich znaków.
-- Tylko sieć lokalna. Żadnego dostępu z internetu.
+## Goal and scope
 
-Poza zakresem: mysz, przesyłanie obrazu, wykonywanie poleceń na Decku przez serwer,
-wtyczka Stream Deck (może kiedyś, korzystając z tego samego API co WebUI).
+- Configuring the console: terminal (Konsole), Steam launch options, the browser,
+  text fields in launchers. Gaming is not the goal.
+- Works in Game Mode and Desktop Mode.
+- ASCII characters only (US layout).
+- Local network only. No access from the internet.
 
-## Architektura
+Out of scope: mouse, screen streaming, running commands on the Deck through the server,
+a Stream Deck plugin (maybe later, using the same API as the WebUI).
 
-| Część | Gdzie | Rola |
+## Architecture
+
+| Part | Where | Role |
 |---|---|---|
-| Usługa `elemental-deckkeys.service` | Deck, systemd, root | wirtualna klawiatura (`/dev/uinput`), serwer HTTPS + WebSocket, parowanie |
-| Panel Decky | Deck, tryb gry | pilot: wyłącznik główny, „Paruj”, lista urządzeń |
-| Panel lokalny | Deck, tryb pulpitu | to samo co panel Decky; strona dostępna tylko z `127.0.0.1` |
-| WebUI | przeglądarka na PC | tryb tekstu, tryb na żywo, „Zakończ sesję” |
+| `elemental-deckkeys.service` | Deck, systemd, root | virtual keyboard (`/dev/uinput`), HTTPS + WebSocket server, pairing |
+| Decky panel | Deck, Game Mode | remote control: main switch, "Pair", device list |
+| Local panel | Deck, Desktop Mode | same as the Decky panel; a page reachable only from `127.0.0.1` |
+| WebUI | browser on the PC | text mode, live mode, "End session" |
 
-Usługa nie zależy od Decky. Gdy Decky przestanie działać po aktualizacji Steama, klawiatura
-działa dalej, znika tylko panel w menu `...`.
+The service does not depend on Decky. If Decky breaks after a Steam update, the keyboard
+keeps working; only the panel in the `...` menu disappears.
 
-## Stany
+## States
 
-- **Wyłącznik główny wyłączony**: serwer nie nasłuchuje w sieci (panel lokalny działa).
-- **Wyłącznik włączony, brak sesji**: serwer nasłuchuje, klawisze są ignorowane.
-- **Sesja aktywna**: klawisze od sparowanego urządzenia trafiają na Decka.
+- **Main switch off**: the server does not listen on the network (the local panel still works).
+- **Main switch on, no session**: the server listens, keys are ignored.
+- **Session active**: keys from a paired device reach the Deck.
 
-Sesja kończy się po: „Zakończ sesję”, zamknięciu karty, zerwaniu połączenia (brak sygnału
-przez 3 s) albo 10 minutach bez pisania. Przy końcu sesji, utracie fokusu lub ukryciu karty
-Deck puszcza wszystkie wciśnięte klawisze.
+A session ends on "End session", closing the tab, a dropped connection (no heartbeat for 3 s)
+or 10 minutes without typing. When a session ends, the page loses focus or the tab is hidden,
+the Deck releases all held keys.
 
-## Bezpieczeństwo
+## Security
 
-- HTTPS z certyfikatem wystawionym przez Decka (`openssl` przy instalacji). Bez domeny.
-  Przeglądarka raz pokazuje ostrzeżenie.
-- Panel lokalny i panel Decky dostępne tylko z `127.0.0.1`.
-- Parowanie możliwe tylko po kliknięciu „Paruj” na Decku.
-- Brak endpointu do wykonywania poleceń. Usługa umie tylko naciskać klawisze.
+- HTTPS with a certificate issued by the Deck itself (`openssl` during install). No domain needed.
+  The browser shows a warning once.
+- The local panel and the Decky panel are reachable only from `127.0.0.1`.
+- Pairing is possible only after pressing "Pair" on the Deck.
+- No endpoint for running commands. The service can only press keys.
 
-### Parowanie
+### Pairing
 
-1. Na Decku „Paruj nowe urządzenie”: 6-cyfrowy kod, ważny 2 min, jednorazowy,
-   unieważniany po 5 błędnych próbach.
-2. Na PC strona prosi o kod i nazwę urządzenia.
-3. Deck tworzy losowy klucz (256 bitów) i ustawia go w ciasteczku `HttpOnly; Secure; SameSite=Strict`.
-   U siebie trzyma tylko skrót SHA-256 klucza.
-4. Lista sparowanych urządzeń w panelach z opcją „Usuń” (działa od razu).
+1. On the Deck, "Pair new device": a 6-digit code, valid for 2 minutes, single use,
+   invalidated after 5 wrong attempts.
+2. On the PC the page asks for the code and a device name.
+3. The Deck creates a random key (256 bits) and sets it as a `HttpOnly; Secure; SameSite=Strict` cookie.
+   The Deck stores only the SHA-256 hash of the key.
+4. Both panels list paired devices with a "Remove" button (takes effect immediately).
 
-Adres domyślny: `https://steamdeck.local:8443` (pokazywany także IP). Klucz jest przypisany
-do adresu, więc zmiana IP przy wejściu przez IP wymaga ponownego parowania.
+Default address: `https://steamdeck.local:8443` (the IP is shown too). The key is bound to the
+address, so when the page is opened by IP and the IP changes, the device has to pair again.
 
 ## WebUI
 
-- **Tekst**: pole wielowierszowe, „Enter na końcu”, „Wyślij” (Ctrl+Enter), postęp
-  i „Przerwij” przy długim tekście. „Zapisane” fragmenty dodawane tylko ręcznie
-  (przechowywane w przeglądarce na PC).
-- **Na żywo**: pole „Kliknij tutaj, aby pisać na Decku”, ramka w kolorze akcentu, gdy
-  przechwytuje. Przesyła fizyczne klawisze (`KeyboardEvent.code`). Ctrl+X i Ctrl+C idą
-  na Decka jako skróty. Ctrl+V i Ctrl+Shift+V wpisują na Decku tekst ze schowka PC.
-- **Ustawienia**: motyw (jasny / ciemny / systemowy), szybkość wpisywania,
-  „Zapomnij to urządzenie”.
-- Pasek stanu: połączenie, sesja, czas do automatycznego wyłączenia.
-- Zwykły HTML/CSS/JS, bez frameworków i bez CDN.
-- Wygląd: czytelny, kontrastowy, jeden kolor akcentu, bez ozdobników.
+- **Text**: multi-line field, "Enter at the end", "Send" (Ctrl+Enter), progress and "Stop"
+  for long text. "Saved" snippets are added manually only (stored in the PC browser).
+- **Live**: a "Click here to type on the Deck" area with an accent-colored border while it
+  captures. Sends physical keys (`KeyboardEvent.code`). Ctrl+X and Ctrl+C go to the Deck as
+  shortcuts. Ctrl+V and Ctrl+Shift+V type the PC clipboard on the Deck.
+- **Settings**: theme (light / dark / system), typing speed, "Forget this device".
+- Status bar: connection, session, time until automatic switch-off.
+- Plain HTML/CSS/JS, no frameworks, no CDN.
+- Look: readable, high contrast, one accent color, no decoration.
 
-Na PC uruchamiane z zakładki albo skrótu `msedge --app=https://steamdeck.local:8443`.
+On the PC it is opened from a bookmark or a `msedge --app=https://steamdeck.local:8443` shortcut.
 
-## Wpisywanie
+## Typing
 
-- Tryb tekstu: znak → klawisz (+ Shift) w układzie US.
-- Domyślnie ok. 100 znaków/s, regulowane w ustawieniach.
+- Text mode: character → key (+ Shift) in the US layout.
+- About 100 characters per second by default, adjustable in settings.
 
-## Instalacja na Decku
+## Installation on the Deck
 
-- Program w `~/.local/share/elemental-deckkeys/`, plik usługi w `/etc/systemd/system/`.
-  Oba miejsca przetrwają aktualizacje SteamOS.
-- Bez `steamos-readonly disable` i bez `pacman`.
-- Python ze SteamOS, tylko biblioteka standardowa (ewentualna mała biblioteka dołączona
-  do projektu).
-- Skrypt instalacyjny i odinstalowujący.
+- Program in `~/.local/share/elemental-deckkeys/`, service file in `/etc/systemd/system/`.
+  Both survive SteamOS updates.
+- No `steamos-readonly disable`, no `pacman`.
+- SteamOS Python, standard library only (a small library bundled with the project if needed).
+- Install and uninstall scripts.
 
-## Etapy
+## Stages
 
-0. Test wirtualnej klawiatury (`deck/keyboard_test.py`, `deck/game_mode_test.sh`) w trybie gry i pulpitu.
-1. Usługa + WebUI w trybie tekstu (HTTPS, parowanie, sesja).
-2. Tryb na żywo.
-3. Panel lokalny + skrypt instalacyjny.
-4. Panel Decky.
+0. Virtual keyboard test (`deck/keyboard_test.py`, `deck/game_mode_test.sh`) in Game Mode and Desktop Mode.
+1. Service + WebUI text mode (HTTPS, pairing, session).
+2. Live mode.
+3. Local panel + install script.
+4. Decky panel.
 
-## Do sprawdzenia w praktyce
+## To verify in practice
 
-- Czy tryb gry (gamescope / Steam) od razu widzi nową wirtualną klawiaturę.
-- Przy jakim tempie pola w Steamie zaczynają gubić znaki.
-- Czy `steamdeck.local` działa w sieci domowej z Windows.
+- Whether Game Mode (gamescope / Steam) picks up the new virtual keyboard right away.
+- At what speed Steam text fields start dropping characters.
+- Whether `steamdeck.local` resolves from Windows on a home network.
