@@ -17,6 +17,7 @@ jeszcze do zrobienia. Plan w [SPEC.pl.md](SPEC.pl.md).
 2. W trybie pulpitu kliknij dwa razy `Install Elemental DeckKeys.desktop` i podaj hasło `sudo`.
    Od teraz usługa startuje razem z Deckiem, w trybie gry i pulpitu.
    Jeśli żadna przeglądarka nie jest sparowana, instalator od razu pokaże kod parowania.
+   Gdy jest Decky Loader, zapyta, czy dodać panel do trybu gry (domyślnie nie).
    Skopiowany folder można potem usunąć.
 
 Albo w Konsole na Decku pobierz i zainstaluj najnowszą wersję jednym poleceniem

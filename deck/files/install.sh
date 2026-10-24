@@ -1,7 +1,15 @@
 #!/bin/bash
 # Installs Elemental DeckKeys as a service that starts with the Deck.
 # Started by "Install Elemental DeckKeys.desktop" next to the files folder.
+# Options: --decky / --no-decky install or skip the Game Mode panel without asking.
 set -e
+decky_choice=""
+for arg in "$@"; do
+  case "$arg" in
+    --decky) decky_choice=yes ;;
+    --no-decky) decky_choice=no ;;
+  esac
+done
 if [ "$(id -u)" != 0 ]; then
   echo "Run with sudo."
   exit 1
@@ -13,6 +21,19 @@ home="$(getent passwd "$user" | cut -d: -f6)"
 dest="$home/.local/share/elemental-deckkeys"
 apps="$home/.local/share/applications"
 unit=/etc/systemd/system/elemental-deckkeys.service
+
+# Game Mode panel: optional, only when Decky Loader is installed. Asked before the service
+# stops, so the answer can still be typed with DeckKeys.
+plugins="$home/homebrew/plugins"
+if [ -d "$plugins" ] && [ -d "$src/decky" ] && [ -z "$decky_choice" ]; then
+  if [ -d "$plugins/elemental-deckkeys" ]; then
+    read -r -p "Update the Game Mode panel for Decky Loader? [Y/n] " answer || answer=""
+    case "$answer" in [nN]*) decky_choice=no ;; *) decky_choice=yes ;; esac
+  else
+    read -r -p "Decky Loader found. Install the Game Mode panel? [y/N] " answer || answer=""
+    case "$answer" in [yY]*) decky_choice=yes ;; *) decky_choice=no ;; esac
+  fi
+fi
 
 systemctl stop elemental-deckkeys 2>/dev/null || true
 # Background server from the stage 1 test, if still running.
@@ -58,9 +79,8 @@ entry pair "Pair" "konsole --hold -e python3 $dest/deckkeys_ctl.py pair"
 entry toggle "On/Off" "python3 $dest/deckkeys_ctl.py toggle"
 entry uninstall "Uninstall" "konsole --hold -e sudo bash $dest/uninstall.sh"
 
-# Game Mode panel, only when Decky Loader is installed.
-plugins="$home/homebrew/plugins"
-if [ -d "$plugins" ] && [ -d "$src/decky" ]; then
+# Game Mode panel (the answer was given at the start).
+if [ "$decky_choice" = yes ] && [ -d "$plugins" ] && [ -d "$src/decky" ]; then
   rm -rf "$plugins/elemental-deckkeys"
   cp -r "$src/decky" "$plugins/elemental-deckkeys"
   chown -R --reference="$plugins" "$plugins/elemental-deckkeys"
@@ -84,5 +104,7 @@ done
 echo
 echo "Installed. Elemental DeckKeys starts with the Deck, in Game Mode and Desktop Mode."
 echo "Application menu: Elemental DeckKeys – Pair, On/Off, Uninstall."
-echo "Game Mode: Decky menu > Elemental DeckKeys (when Decky Loader is installed)."
+if [ -d "$plugins/elemental-deckkeys" ]; then
+  echo "Game Mode: Decky menu > Elemental DeckKeys."
+fi
 echo "The installer folder is no longer needed and can be deleted."

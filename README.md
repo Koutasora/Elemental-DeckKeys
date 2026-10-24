@@ -17,6 +17,7 @@ is still to come. See [SPEC.md](SPEC.md) for the plan.
 2. In Desktop Mode double-click `Install Elemental DeckKeys.desktop` and enter the `sudo` password.
    The service starts with the Deck from now on, in Game Mode and Desktop Mode.
    If no browser is paired yet, the installer shows a pairing code right away.
+   When Decky Loader is installed, it asks whether to add the Game Mode panel (no by default).
    The copied folder can be deleted afterwards.
 
 Or, in Konsole on the Deck, download and install the latest version in one go
