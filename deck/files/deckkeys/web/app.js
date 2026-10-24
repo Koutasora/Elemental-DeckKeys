@@ -110,6 +110,7 @@ const I18N = {
     forget: "Forget this device",
     forgetConfirm: "Forget this device? You will have to pair it again.",
     close: "Close",
+    version: "Version {v}",
   },
   pl: {
     settings: "Ustawienia",
@@ -220,6 +221,7 @@ const I18N = {
     forget: "Zapomnij to urządzenie",
     forgetConfirm: "Zapomnieć to urządzenie? Trzeba będzie sparować je ponownie.",
     close: "Zamknij",
+    version: "Wersja {v}",
   },
 };
 
@@ -764,6 +766,7 @@ async function fetchStatus() {
   const response = await fetch("/api/status", { cache: "no-store" });
   const status = await response.json();
   Object.assign(me, { name: status.name || "", kind: status.kind || "other" });
+  if (status.version) $("version").textContent = t("version", { v: status.version });
   return status;
 }
 

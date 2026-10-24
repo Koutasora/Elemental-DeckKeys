@@ -12,7 +12,7 @@ import threading
 import time
 from http.cookies import CookieError, SimpleCookie
 
-from . import certs, qr
+from . import __version__, certs, qr
 from .keyboard import BROWSER_CODES, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard
 from .pairing import CODE_LIFETIME, KINDS, DeviceStore, Pairing
 from .websocket import WebSocket, accept_key
@@ -287,7 +287,7 @@ class Server:
             return await self._json(writer, request, 200, {
                 "paired": device_id is not None, "name": device.get("name"),
                 "kind": device.get("kind", "other") if device_id else None,
-                "pairing": self.pairing.active,
+                "pairing": self.pairing.active, "version": __version__,
             })
         if path == "/api/devices" and method == "GET":
             mine = self.devices.find(request.cookie(COOKIE))
@@ -348,6 +348,7 @@ class Server:
         """Everything the Decky panel shows. Only served to the Deck itself."""
         client = self.client
         return {
+            "version": __version__,
             "on": self.enabled,
             "client": self.devices.devices.get(client.device_id, {}).get("name") if client else None,
             "client_kind": (self.devices.devices.get(client.device_id, {}).get("kind", "other")
