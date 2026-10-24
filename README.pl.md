@@ -8,37 +8,33 @@ Bez podpinania klawiatury, bez SSH, bez instalowania czegokolwiek na PC.
 
 ## Stan
 
-Wczesny etap. Etap 0 (wirtualna klawiatura) działa w trybie gry i pulpitu.
-Etap 1 (serwer + WebUI w trybie tekstu) jest w testach. Plan w [SPEC.pl.md](SPEC.pl.md).
+Wczesny etap. Tryb tekstu i tryb na żywo działają; wyłącznik główny i panel Decky są
+jeszcze do zrobienia. Plan w [SPEC.pl.md](SPEC.pl.md).
 
-## Test etapu 1
+## Instalacja
 
-Skopiuj folder `deck` na Decka jako `/home/deck/deckkeys/` i uruchamiaj pliki dwuklikiem
-w Dolphinie (każdy pyta o hasło `sudo`):
+1. Skopiuj folder `deck` na Decka jako `/home/deck/deckkeys/`.
+2. W trybie pulpitu kliknij dwa razy `Install Elemental DeckKeys.desktop` i podaj hasło `sudo`.
+   Od teraz usługa startuje razem z Deckiem, w trybie gry i pulpitu.
+   Skopiowany folder można potem usunąć.
 
-- `DeckKeys pair.desktop` – uruchamia serwer w oknie Konsole i pokazuje 6-cyfrowy kod parowania
-  (ważny 2 minuty) oraz adres. Otwórz adres w przeglądarce na PC, raz zaakceptuj ostrzeżenie
-  o certyfikacie i wpisz kod.
-- `DeckKeys start.desktop` – uruchamia serwer w tle, działa też w trybie gry.
-- `DeckKeys stop.desktop` – zatrzymuje serwer w tle.
+## Parowanie przeglądarki
 
-## Test etapu 0
+1. Na Decku: menu aplikacji > **Elemental DeckKeys – Pair** (bez hasła).
+   Pokaże adres i 6-cyfrowy kod ważny 2 minuty.
+2. Na PC otwórz `https://steamdeck.local`, raz zaakceptuj ostrzeżenie o certyfikacie
+   i wpisz kod.
 
-Skopiuj folder `deck` na Decka, np. do `/home/deck/deckkeys/`.
+## Używanie
 
-Tryb pulpitu – w ciągu 10 sekund kliknij w pole tekstowe:
+- **Rozpocznij sesję**, potem zakładka **Tekst** (wpisz lub wklej, Wyślij) albo **Na żywo**
+  (kliknij w pole i pisz).
+- W zakładce Na żywo Ctrl+V i Ctrl+Shift+V wpisują na Decku schowek z PC.
+- Sesja kończy się przyciskiem **Zakończ sesję**, zamknięciem karty albo po 10 minutach bez pisania.
 
-```
-sudo python3 ~/deckkeys/keyboard_test.py
-```
+## Odinstalowanie
 
-Tryb gry – potem w ciągu 90 sekund przełącz na tryb gry i otwórz pole tekstowe:
-
-```
-sudo bash ~/deckkeys/game_mode_test.sh
-```
-
-Log: `journalctl -u deckkeys-test`
+Menu aplikacji > **Elemental DeckKeys – Uninstall** (pyta o hasło `sudo`).
 
 ## Licencja
 

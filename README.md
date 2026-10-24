@@ -8,37 +8,33 @@ No keyboard to plug in, no SSH, nothing to install on the PC.
 
 ## Status
 
-Early development. Stage 0 (virtual keyboard) works in Game Mode and Desktop Mode.
-Stage 1 (server + WebUI text mode) is being tested. See [SPEC.md](SPEC.md) for the plan.
+Early development. Text mode and live mode work; the main on/off switch and the Decky panel
+are still to come. See [SPEC.md](SPEC.md) for the plan.
 
-## Stage 1 test
+## Install
 
-Copy the `deck` folder to the Deck as `/home/deck/deckkeys/` and double-click the launchers
-in Dolphin (each asks for the `sudo` password):
+1. Copy the `deck` folder to the Deck as `/home/deck/deckkeys/`.
+2. In Desktop Mode double-click `Install Elemental DeckKeys.desktop` and enter the `sudo` password.
+   The service starts with the Deck from now on, in Game Mode and Desktop Mode.
+   The copied folder can be deleted afterwards.
 
-- `DeckKeys pair.desktop` – runs the server in a Konsole window and shows a 6-digit pairing code
-  (valid for 2 minutes) and the address. Open the address in the PC browser, accept the
-  certificate warning once and enter the code.
-- `DeckKeys start.desktop` – runs the server in the background, it keeps running in Game Mode.
-- `DeckKeys stop.desktop` – stops the background server.
+## Pair a browser
 
-## Stage 0 test
+1. On the Deck: application menu > **Elemental DeckKeys – Pair** (no password).
+   It shows the address and a 6-digit code valid for 2 minutes.
+2. On the PC open `https://steamdeck.local`, accept the certificate warning once
+   and enter the code.
 
-Copy the `deck` folder to the Deck, e.g. to `/home/deck/deckkeys/`.
+## Use
 
-Desktop Mode – click into a text field within 10 seconds:
+- **Start session**, then the **Text** tab (type or paste, Send) or the **Live** tab
+  (click the box and type).
+- In the Live tab Ctrl+V and Ctrl+Shift+V type the PC clipboard on the Deck.
+- The session ends with **End session**, by closing the tab or after 10 minutes without typing.
 
-```
-sudo python3 ~/deckkeys/keyboard_test.py
-```
+## Uninstall
 
-Game Mode – then switch to Game Mode and open a text field within 90 seconds:
-
-```
-sudo bash ~/deckkeys/game_mode_test.sh
-```
-
-Log: `journalctl -u deckkeys-test`
+Application menu > **Elemental DeckKeys – Uninstall** (asks for the `sudo` password).
 
 ## License
 

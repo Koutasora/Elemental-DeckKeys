@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Install Elemental DeckKeys
+Comment=Copy this folder to /home/deck/deckkeys first
+Icon=input-keyboard
+Exec=konsole --hold -e sudo bash /home/deck/deckkeys/install.sh
+Terminal=false

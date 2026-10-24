@@ -23,6 +23,7 @@ wtyczka Stream Deck (może kiedyś, korzystając z tego samego API co WebUI).
 | Usługa `elemental-deckkeys.service` | Deck, systemd, root | wirtualna klawiatura (`/dev/uinput`), serwer HTTPS + WebSocket, parowanie |
 | Panel Decky | Deck, tryb gry | pilot: wyłącznik główny, „Paruj”, lista urządzeń |
 | Panel lokalny | Deck, tryb pulpitu | to samo co panel Decky; strona dostępna tylko z `127.0.0.1` |
+| Okno parowania | Deck, menu aplikacji | pokazuje kod parowania, działa bez `sudo` |
 | WebUI | przeglądarka na PC | tryb tekstu, tryb na żywo, „Zakończ sesję” |
 
 Usługa nie zależy od Decky. Gdy Decky przestanie działać po aktualizacji Steama, klawiatura
@@ -48,7 +49,8 @@ Deck puszcza wszystkie wciśnięte klawisze.
 
 ### Parowanie
 
-1. Na Decku „Paruj nowe urządzenie”: 6-cyfrowy kod, ważny 2 min, jednorazowy,
+1. Na Decku „Paruj nowe urządzenie” (na razie: menu aplikacji > Elemental DeckKeys – Pair,
+   które pyta usługę przez `127.0.0.1` z nagłówkiem `X-DeckKeys-Local`): 6-cyfrowy kod, ważny 2 min, jednorazowy,
    unieważniany po 5 błędnych próbach.
 2. Na PC strona prosi o kod i nazwę urządzenia.
 3. Deck tworzy losowy klucz (256 bitów) i ustawia go w ciasteczku `HttpOnly; Secure; SameSite=Strict`.
@@ -92,10 +94,10 @@ Na PC uruchamiane z zakładki albo skrótu `msedge --app=https://steamdeck.local
 
 ## Etapy
 
-0. Test wirtualnej klawiatury (`deck/keyboard_test.py`, `deck/game_mode_test.sh`) w trybie gry i pulpitu.
-1. Usługa + WebUI w trybie tekstu (HTTPS, parowanie, sesja).
-2. Tryb na żywo.
-3. Panel lokalny + skrypt instalacyjny.
+0. Test wirtualnej klawiatury w trybie gry i pulpitu – zrobione.
+1. Usługa + WebUI w trybie tekstu (HTTPS, parowanie, sesja) – zrobione.
+2. Tryb na żywo – zrobione, w testach na Decku.
+3. Instalator (zrobiony) + panel lokalny z wyłącznikiem głównym.
 4. Panel Decky.
 
 ## Sprawdzone (etap 0, 2026-10-24)

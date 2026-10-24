@@ -71,6 +71,36 @@ def _build_char_map():
 CHARS = _build_char_map()
 
 
+def _build_browser_map():
+    """KeyboardEvent.code (physical key) -> key code."""
+    codes = {f"Key{letter}": KEY[letter] for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"}
+    for digit in "0123456789":
+        codes[f"Digit{digit}"] = KEY[digit]
+        codes[f"Numpad{digit}"] = KEY[digit]
+    for n in range(1, 13):
+        codes[f"F{n}"] = KEY[f"F{n}"]
+    names = {
+        "Minus": "MINUS", "Equal": "EQUAL", "BracketLeft": "LEFTBRACE",
+        "BracketRight": "RIGHTBRACE", "Backslash": "BACKSLASH", "IntlBackslash": "BACKSLASH",
+        "Semicolon": "SEMICOLON", "Quote": "APOSTROPHE", "Backquote": "GRAVE",
+        "Comma": "COMMA", "Period": "DOT", "Slash": "SLASH", "Space": "SPACE",
+        "Enter": "ENTER", "NumpadEnter": "ENTER", "Tab": "TAB", "Backspace": "BACKSPACE",
+        "Escape": "ESC", "CapsLock": "CAPSLOCK", "ShiftLeft": "LEFTSHIFT",
+        "ShiftRight": "RIGHTSHIFT", "ControlLeft": "LEFTCTRL", "ControlRight": "RIGHTCTRL",
+        "AltLeft": "LEFTALT", "AltRight": "RIGHTALT", "MetaLeft": "LEFTMETA",
+        "MetaRight": "RIGHTMETA", "ArrowUp": "UP", "ArrowDown": "DOWN", "ArrowLeft": "LEFT",
+        "ArrowRight": "RIGHT", "Home": "HOME", "End": "END", "PageUp": "PAGEUP",
+        "PageDown": "PAGEDOWN", "Insert": "INSERT", "Delete": "DELETE",
+        "NumpadDecimal": "DOT", "NumpadDivide": "SLASH", "NumpadSubtract": "MINUS",
+    }
+    for code, name in names.items():
+        codes[code] = KEY[name]
+    return codes
+
+
+BROWSER_CODES = _build_browser_map()
+
+
 class VirtualKeyboard:
     # USB by default: with a virtual bus Steam keeps showing its on-screen keyboard.
     def __init__(self, name="Elemental DeckKeys", bus=BUS_USB):

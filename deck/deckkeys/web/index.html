@@ -42,6 +42,12 @@
       <span id="session-info" class="hint"></span>
     </div>
 
+    <div class="tabs" role="tablist">
+      <button id="tab-text" type="button" role="tab" data-i18n="tabText"></button>
+      <button id="tab-live" type="button" role="tab" data-i18n="tabLive"></button>
+    </div>
+
+    <div id="panel-text">
     <textarea id="text" rows="7" spellcheck="false" autocomplete="off" autocapitalize="off"
               data-i18n-label="textLabel"></textarea>
     <div class="row">
@@ -52,6 +58,15 @@
       <button id="send-btn" type="button" class="primary" data-i18n="send"></button>
     </div>
     <p class="hint" data-i18n="sendHint"></p>
+    </div>
+
+    <div id="panel-live" hidden>
+      <textarea id="live" class="live" rows="6" spellcheck="false" autocomplete="off"
+                autocapitalize="off" data-i18n-placeholder="livePlaceholder"
+                data-i18n-label="tabLive"></textarea>
+      <p id="live-status" class="hint"></p>
+      <p class="hint" data-i18n="liveHint"></p>
+    </div>
 
     <div id="progress" class="row" hidden>
       <progress id="progress-bar" max="1" value="0"></progress>
@@ -60,9 +75,11 @@
     </div>
     <p id="message" class="message" hidden></p>
 
-    <h2 data-i18n="saved"></h2>
-    <p id="saved-empty" class="hint" data-i18n="savedEmpty"></p>
-    <ul id="saved" class="saved"></ul>
+    <div id="saved-section">
+      <h2 data-i18n="saved"></h2>
+      <p id="saved-empty" class="hint" data-i18n="savedEmpty"></p>
+      <ul id="saved" class="saved"></ul>
+    </div>
   </section>
 
   <section id="view-settings" hidden>

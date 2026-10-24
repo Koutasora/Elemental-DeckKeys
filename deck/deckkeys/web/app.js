@@ -22,6 +22,11 @@ const I18N = {
     reconnect: "Reconnect",
     endsIn: "Ends in {time}",
     textLabel: "Text to type on the Deck",
+    tabText: "Text",
+    tabLive: "Live",
+    livePlaceholder: "Click here to type on the Deck",
+    liveCapturing: "Keys go to the Deck. Click outside the box to stop.",
+    liveHint: "Ctrl+V and Ctrl+Shift+V type the PC clipboard. Browser shortcuts such as Ctrl+W or Ctrl+T are not sent.",
     enterAtEnd: "Enter at the end",
     clearAfter: "Clear after sending",
     save: "Save",
@@ -69,6 +74,11 @@ const I18N = {
     reconnect: "Połącz ponownie",
     endsIn: "Wyłączy się za {time}",
     textLabel: "Tekst do wpisania na Decku",
+    tabText: "Tekst",
+    tabLive: "Na żywo",
+    livePlaceholder: "Kliknij tutaj, aby pisać na Decku",
+    liveCapturing: "Klawisze trafiają na Decka. Kliknij poza polem, aby przestać.",
+    liveHint: "Ctrl+V i Ctrl+Shift+V wpisują schowek z PC. Skróty przeglądarki, np. Ctrl+W czy Ctrl+T, nie są przesyłane.",
     enterAtEnd: "Enter na końcu",
     clearAfter: "Wyczyść po wysłaniu",
     save: "Zapisz",
@@ -127,6 +137,8 @@ let replaced = false;
 let nextId = 1;
 let currentId = null;
 let currentFromField = false;
+let tab = "text";
+const held = new Set();
 const state = { connected: false, session: false, remaining: 0, typing: false };
 
 function t(key, vars = {}) {
@@ -141,6 +153,9 @@ function applyLanguage() {
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll("[data-i18n-label]").forEach((el) => {
     el.setAttribute("aria-label", t(el.dataset.i18nLabel));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
   });
   render();
   renderSaved();
@@ -193,6 +208,72 @@ function render() {
   $("send-btn").disabled = !canSend;
   document.querySelectorAll("#saved .send").forEach((b) => { b.disabled = !canSend; });
   $("progress").hidden = !state.typing;
+
+  const capturing = liveActive();
+  $("live").classList.toggle("capturing", capturing);
+  let liveStatus = "";
+  if (tab === "live" && state.connected && !state.session) liveStatus = t("no_session");
+  else if (capturing) liveStatus = t("liveCapturing");
+  $("live-status").textContent = liveStatus;
+}
+
+// --- Tabs and live mode ---------------------------------------------------
+
+function selectTab(name) {
+  tab = name;
+  store.set("tab", name);
+  $("tab-text").setAttribute("aria-selected", String(name === "text"));
+  $("tab-live").setAttribute("aria-selected", String(name === "live"));
+  $("panel-text").hidden = name !== "text";
+  $("saved-section").hidden = name !== "text";
+  $("panel-live").hidden = name !== "live";
+  if (name !== "live") releaseHeld();
+  render();
+}
+
+function liveActive() {
+  return tab === "live" && state.session && document.activeElement === $("live");
+}
+
+function releaseHeld() {
+  for (const code of held) send({ t: "key", code, down: false });
+  held.clear();
+  send({ t: "release" });
+}
+
+function bindLive() {
+  const live = $("live");
+  live.addEventListener("keydown", (event) => {
+    if (!liveActive()) return;
+    // Ctrl+V / Ctrl+Shift+V: let the browser fire "paste" with the PC clipboard.
+    if (event.ctrlKey && event.code === "KeyV") return;
+    event.preventDefault();
+    if (event.repeat || state.typing) return;
+    held.add(event.code);
+    send({ t: "key", code: event.code, down: true });
+  });
+  live.addEventListener("keyup", (event) => {
+    if (!held.has(event.code)) return;
+    event.preventDefault();
+    held.delete(event.code);
+    send({ t: "key", code: event.code, down: false });
+  });
+  live.addEventListener("paste", (event) => {
+    event.preventDefault();
+    if (!liveActive()) return;
+    const text = event.clipboardData.getData("text/plain");
+    held.clear();
+    if (text) sendText(text, false, false);
+  });
+  live.addEventListener("input", () => { live.value = ""; });
+  live.addEventListener("focus", render);
+  live.addEventListener("blur", () => {
+    releaseHeld();
+    render();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) live.blur();
+  });
 }
 
 // --- Saved snippets -------------------------------------------------------
@@ -304,18 +385,18 @@ function handleMessage(msg) {
   }
 }
 
-function sendText(text, fromField = false) {
+function sendText(text, fromField = false, withEnter = $("enter").checked) {
   if (!text || !state.session || state.typing) return;
   showMessage("");
   currentId = nextId++;
   currentFromField = fromField;
-  const total = text.length + ($("enter").checked ? 1 : 0);
+  const total = text.length + (withEnter ? 1 : 0);
   $("progress-bar").max = total;
   $("progress-bar").value = 0;
   $("progress-text").textContent = t("typing", { done: 0, total });
   state.typing = true;
   render();
-  send({ t: "text", id: currentId, text, enter: $("enter").checked, speed: Number(store.get("speed", 100)) });
+  send({ t: "text", id: currentId, text, enter: withEnter, speed: Number(store.get("speed", 100)) });
 }
 
 // --- Pairing and settings -------------------------------------------------
@@ -393,6 +474,10 @@ function bind() {
   $("speed").value = String(store.get("speed", 100));
   $("speed").addEventListener("change", () => store.set("speed", Number($("speed").value)));
   $("forget-btn").addEventListener("click", forget);
+
+  $("tab-text").addEventListener("click", () => selectTab("text"));
+  $("tab-live").addEventListener("click", () => selectTab("live"));
+  bindLive();
 }
 
 async function start() {
@@ -410,4 +495,5 @@ async function start() {
 applyTheme();
 bind();
 applyLanguage();
+selectTab(store.get("tab", "text") === "live" ? "live" : "text");
 start();

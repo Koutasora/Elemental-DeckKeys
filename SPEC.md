@@ -23,6 +23,7 @@ a Stream Deck plugin (maybe later, using the same API as the WebUI).
 | `elemental-deckkeys.service` | Deck, systemd, root | virtual keyboard (`/dev/uinput`), HTTPS + WebSocket server, pairing |
 | Decky panel | Deck, Game Mode | remote control: main switch, "Pair", device list |
 | Local panel | Deck, Desktop Mode | same as the Decky panel; a page reachable only from `127.0.0.1` |
+| Pairing window | Deck, application menu | shows a pairing code, runs without `sudo` |
 | WebUI | browser on the PC | text mode, live mode, "End session" |
 
 The service does not depend on Decky. If Decky breaks after a Steam update, the keyboard
@@ -48,7 +49,8 @@ the Deck releases all held keys.
 
 ### Pairing
 
-1. On the Deck, "Pair new device": a 6-digit code, valid for 2 minutes, single use,
+1. On the Deck, "Pair new device" (for now: application menu > Elemental DeckKeys – Pair,
+   which asks the service over `127.0.0.1` with an `X-DeckKeys-Local` header): a 6-digit code, valid for 2 minutes, single use,
    invalidated after 5 wrong attempts.
 2. On the PC the page asks for the code and a device name.
 3. The Deck creates a random key (256 bits) and sets it as a `HttpOnly; Secure; SameSite=Strict` cookie.
@@ -89,10 +91,10 @@ On the PC it is opened from a bookmark or a `msedge --app=https://steamdeck.loca
 
 ## Stages
 
-0. Virtual keyboard test (`deck/keyboard_test.py`, `deck/game_mode_test.sh`) in Game Mode and Desktop Mode.
-1. Service + WebUI text mode (HTTPS, pairing, session).
-2. Live mode.
-3. Local panel + install script.
+0. Virtual keyboard test in Game Mode and Desktop Mode – done.
+1. Service + WebUI text mode (HTTPS, pairing, session) – done.
+2. Live mode – done, testing on the Deck.
+3. Installer (done) + local panel with the main switch.
 4. Decky panel.
 
 ## Verified (stage 0, 2026-10-24)

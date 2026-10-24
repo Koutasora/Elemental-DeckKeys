@@ -1,7 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Elemental DeckKeys – Game Mode test
-Comment=Starts the stage 0 keyboard test that keeps running in Game Mode
-Icon=input-keyboard
-Exec=konsole --hold -e sudo bash /home/deck/deckkeys/game_mode_test.sh
-Terminal=false

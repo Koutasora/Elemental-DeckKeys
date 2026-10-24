@@ -13,8 +13,8 @@ import time
 from http.cookies import CookieError, SimpleCookie
 
 from . import certs
-from .keyboard import VirtualKeyboard
-from .pairing import DeviceStore, Pairing
+from .keyboard import BROWSER_CODES, VirtualKeyboard
+from .pairing import CODE_LIFETIME, DeviceStore, Pairing
 from .websocket import WebSocket, accept_key
 
 COOKIE = "deckkeys"
@@ -38,6 +38,7 @@ HOST_RE = re.compile(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$|^\[[0-9A-Fa-f:.]+\](:\d{1,5}
 
 class Request:
     def __init__(self, method, path, headers, body):
+        self.peer = None
         self.method = method
         self.path = path
         self.headers = headers
@@ -54,6 +55,16 @@ class Request:
     def host(self):
         host = self.headers.get("host", "")
         return host if HOST_RE.match(host) else None
+
+    def local(self):
+        """From the Deck itself and not from a web page (pages cannot set this header
+        cross-origin without a CORS preflight, which the server never answers)."""
+        if self.headers.get("x-deckkeys-local") != "1" or not self.peer:
+            return False
+        try:
+            return ipaddress.ip_address(self.peer.split("%", 1)[0]).is_loopback
+        except ValueError:
+            return False
 
     def same_origin(self):
         host = self.host
@@ -115,6 +126,7 @@ class Server:
         self.cert, self.key = certs.ensure_certificate(data_dir)
         self.keyboard = None
         self.client = None
+        self.last_paired = None
 
     # --- HTTP ---------------------------------------------------------------
 
@@ -148,6 +160,7 @@ class Server:
             if not peer or not allowed_peer(peer[0]):
                 return
             request = await asyncio.wait_for(read_request(reader), 10)
+            request.peer = peer[0]
             await self._route(request, reader, writer)
         except (asyncio.TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError,
                 ConnectionError, ssl.SSLError, ValueError):
@@ -177,6 +190,15 @@ class Server:
             return await self._pair(request, writer)
         if path == "/api/forget" and method == "POST":
             return await self._forget(request, writer)
+        if path == "/api/local/pair" and method == "POST" and request.local():
+            return await self._json(writer, request, 200, {
+                "code": self.pairing.open(), "seconds": CODE_LIFETIME,
+                "addresses": self.addresses(), "fingerprint": certs.fingerprint(self.cert),
+            })
+        if path == "/api/local/pairing" and method == "GET" and request.local():
+            return await self._json(writer, request, 200, {
+                "active": self.pairing.active, "paired": self.last_paired,
+            })
         if path == "/ws" and method == "GET":
             return await self._websocket(request, reader, writer)
         await self._respond(writer, request, 404)
@@ -195,6 +217,7 @@ class Server:
             error = "wrong_code" if result == "wrong" else "pairing_closed"
             return await self._json(writer, request, 403, {"error": error})
         device_id, key = self.devices.add(name)
+        self.last_paired = name
         print(f"Paired: {name}", flush=True)
         cookie = (f"Set-Cookie: {COOKIE}={key}; Path=/; Max-Age=315360000; HttpOnly; Secure; "
                   "SameSite=Strict")
@@ -300,6 +323,15 @@ class Server:
             client.stop.set()
         elif kind == "text":
             await self._start_typing(client, msg)
+        elif kind == "key":
+            # Live mode: physical keys. Ignored while text is being typed.
+            code = BROWSER_CODES.get(msg.get("code"))
+            if client.session and not client.typing and code is not None:
+                self.keyboard.key(code, bool(msg.get("down")))
+                client.last_activity = time.monotonic()
+        elif kind == "release":
+            if not client.typing:
+                self.keyboard.release_all()
 
     async def _start_typing(self, client, msg):
         error = None
@@ -321,6 +353,8 @@ class Server:
             speed = 100
         client.last_activity = time.monotonic()
         client.stop.clear()
+        # Keys still held in live mode (e.g. Ctrl from Ctrl+V) would turn the text into shortcuts.
+        self.keyboard.release_all()
         client.typing = asyncio.create_task(self._type(client, msg.get("id"), text, speed))
 
     async def _type(self, client, message_id, text, speed):
@@ -348,6 +382,14 @@ class Server:
 
     # --- Run ----------------------------------------------------------------
 
+    def addresses(self):
+        suffix = "" if self.port == 443 else f":{self.port}"
+        result = [f"https://{socket.gethostname()}.local{suffix}"]
+        ip = lan_address()
+        if ip:
+            result.append(f"https://{ip}{suffix}")
+        return result
+
     async def run(self, pair):
         loop = asyncio.get_running_loop()
 
@@ -362,13 +404,9 @@ class Server:
         server = await asyncio.start_server(
             self._handle, "0.0.0.0", self.port,
             ssl=certs.server_context(self.cert, self.key), limit=MAX_HEAD)
-        host = socket.gethostname()
-        ip = lan_address()
         print("Elemental DeckKeys is running.", flush=True)
-        suffix = "" if self.port == 443 else f":{self.port}"
-        print(f"  https://{host}.local{suffix}", flush=True)
-        if ip:
-            print(f"  https://{ip}{suffix}", flush=True)
+        for address in self.addresses():
+            print(f"  {address}", flush=True)
         print(f"  Certificate: {certs.fingerprint(self.cert)}", flush=True)
         if pair:
             code = self.pairing.open()

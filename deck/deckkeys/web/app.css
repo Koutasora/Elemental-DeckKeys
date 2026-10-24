@@ -122,6 +122,41 @@ textarea {
 .check { display: flex; align-items: center; gap: 8px; }
 .check input { width: 18px; height: 18px; }
 
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 16px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs button {
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  padding: 8px 14px;
+}
+
+.tabs button[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.live {
+  min-height: 180px;
+  cursor: text;
+  caret-color: transparent;
+}
+
+.live::placeholder { color: var(--muted); }
+
+.live.capturing {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
 progress { flex: 1; min-width: 120px; accent-color: var(--accent); }
 
 .saved { list-style: none; padding: 0; margin: 0; }

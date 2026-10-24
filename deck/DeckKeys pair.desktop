@@ -1,6 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Elemental DeckKeys – Pair
-Icon=input-keyboard
-Exec=konsole --hold -e sudo bash /home/deck/deckkeys/server.sh pair
-Terminal=false
