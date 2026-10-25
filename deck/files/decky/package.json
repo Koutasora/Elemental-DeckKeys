@@ -1,6 +1,6 @@
 {
   "name": "elemental-deckkeys",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Game Mode panel for Elemental DeckKeys: on/off, pairing and paired devices.",
   "type": "module",
   "scripts": {
