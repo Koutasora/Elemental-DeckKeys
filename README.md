@@ -6,6 +6,21 @@ Control your Steam Deck from the browser on your PC or phone, over the local net
 type text, use the keyboard live, move the cursor, press media keys and move files.
 Works in Game Mode and Desktop Mode. Nothing to plug in, no SSH, nothing to install on the PC.
 
+<table>
+  <tr>
+    <td><img src="docs/screenshots/text.png" width="380" alt="Text tab"></td>
+    <td><img src="docs/screenshots/live.png" width="380" alt="Live tab"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/pad.png" width="380" alt="Touchpad tab"></td>
+    <td><img src="docs/screenshots/files.png" width="380" alt="Files tab"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/decky-panel-1.png" width="380" alt="Decky panel in Game Mode"></td>
+    <td><img src="docs/screenshots/decky-panel-2.png" width="380" alt="Decky panel: received files and paired browsers"></td>
+  </tr>
+</table>
+
 ## What it does
 
 | Tab | What for |

@@ -7,6 +7,21 @@ wysyłanie tekstu, klawiatura na żywo, kursor myszy, klawisze multimedialne i p
 Działa w trybie gry i w trybie pulpitu. Bez podpinania czegokolwiek, bez SSH, bez instalowania
 czegokolwiek na PC.
 
+<table>
+  <tr>
+    <td><img src="docs/screenshots/text.png" width="380" alt="Zakładka Text"></td>
+    <td><img src="docs/screenshots/live.png" width="380" alt="Zakładka Live"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/pad.png" width="380" alt="Zakładka Touchpad"></td>
+    <td><img src="docs/screenshots/files.png" width="380" alt="Zakładka Files"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/decky-panel-1.png" width="380" alt="Panel Decky w trybie gry"></td>
+    <td><img src="docs/screenshots/decky-panel-2.png" width="380" alt="Panel Decky: odebrane pliki i sparowane przeglądarki"></td>
+  </tr>
+</table>
+
 ## Co potrafi
 
 | Zakładka | Do czego |
