@@ -334,6 +334,7 @@ let view = "loading";
 let previousView = "loading";
 let ws = null;
 let pingTimer = null;
+let holdTimer = null;
 let reconnectTimer = null;
 let replaced = false;
 let nextId = 1;
@@ -1326,11 +1327,17 @@ function connect() {
     state.connected = true;
     fetchStatus().catch(() => {});
     pingTimer = setInterval(() => send({ t: "ping" }), 1000);
+    // The Deck releases a key it has not heard of for 0.3 s, so a late key-up cannot
+    // make it repeat the key by itself.
+    holdTimer = setInterval(() => {
+      if (held.size) send({ t: "hold", codes: [...held] });
+    }, 100);
     render();
   };
   ws.onmessage = (event) => handleMessage(JSON.parse(event.data));
   ws.onclose = (event) => {
     clearInterval(pingTimer);
+    clearInterval(holdTimer);
     ws = null;
     if (state.session) endedSession();
     Object.assign(state, { connected: false, session: false, typing: false });
@@ -1496,6 +1503,7 @@ async function forget() {
     ws = null;
   }
   clearInterval(pingTimer);
+  clearInterval(holdTimer);
   Object.assign(state, { connected: false, session: false, typing: false });
   show("pair");
   render();

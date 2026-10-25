@@ -26,6 +26,10 @@ COOKIE = "deckkeys"
 # are held down: then a dropped connection must release them quickly.
 HEARTBEAT_TIMEOUT = 3
 QUIET_HEARTBEAT_TIMEOUT = 90
+# While a key is held the browser repeats "hold" every 100 ms. A key not heard of for this
+# long is released here: a key-up delayed by Wi-Fi would otherwise start the Deck's own key
+# repeat (after about 0.6 s) and type "yyy".
+KEY_HOLD_TIMEOUT = 0.3
 IDLE_TIMEOUT = 600
 SESSION_MINUTES = (5, 10, 15, 20, 30)
 MAX_TEXT = 20000
@@ -132,6 +136,7 @@ class Client:
         self.idle_timeout = IDLE_TIMEOUT
         self.typing = None
         self.stop = threading.Event()
+        self.keys = {}  # live-mode key code -> when the browser last said it is held
 
 
 class Server:
@@ -534,6 +539,7 @@ class Server:
         self.client = client
         self.devices.touch(device_id)
         await self._send_state(client)
+        watchdog = asyncio.create_task(self._watch_keys(client))
         try:
             while not ws.closed:
                 try:
@@ -550,10 +556,30 @@ class Server:
                         and time.monotonic() - client.last_activity > client.idle_timeout):
                     await self._end_session(client, "idle")
         finally:
+            watchdog.cancel()
             await self._end_session(client, None, notify=False)
             if self.client is client:
                 self.client = None
             await ws.close()
+
+    async def _watch_keys(self, client):
+        while True:
+            await asyncio.sleep(0.05)
+            if client.typing:
+                continue
+            now = time.monotonic()
+            for code, seen in list(client.keys.items()):
+                if now - seen > KEY_HOLD_TIMEOUT:
+                    del client.keys[code]
+                    self._key_up(code)
+
+    def _key_device(self, code):
+        return self.media if code in MEDIA_CODES else self.keyboard
+
+    def _key_up(self, code):
+        device = self._key_device(code)
+        if device is not None and device.is_pressed(code):
+            device.key(code, False)
 
     async def _drop_client(self, client, reason):
         await self._end_session(client, reason)
@@ -576,6 +602,7 @@ class Server:
         client.stop.set()
         if client.typing:
             await client.typing
+        client.keys.clear()
         self._release_all()
         self._detach_devices()
         was_active = client.session
@@ -608,9 +635,22 @@ class Server:
             # Live mode: physical keys. Ignored while text is being typed.
             code = BROWSER_CODES.get(msg.get("code"))
             if client.session and not client.typing and code is not None:
-                device = self.media if code in MEDIA_CODES else self.keyboard
-                device.key(code, bool(msg.get("down")))
+                if msg.get("down"):
+                    self._key_device(code).key(code, True)
+                    client.keys[code] = time.monotonic()
+                else:
+                    # Already released by _watch_keys when the key-up came late.
+                    client.keys.pop(code, None)
+                    self._key_up(code)
                 client.last_activity = time.monotonic()
+        elif kind == "hold":
+            codes = msg.get("codes")
+            if isinstance(codes, list):
+                now = time.monotonic()
+                for name in codes[:16]:
+                    code = BROWSER_CODES.get(name) if isinstance(name, str) else None
+                    if code in client.keys:
+                        client.keys[code] = now
         elif kind == "chars":
             # Live mode on a phone: on-screen keyboards deliver characters, not keys.
             text = msg.get("text")

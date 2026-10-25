@@ -170,6 +170,9 @@ class VirtualKeyboard:
         else:
             self._pressed.discard(code)
 
+    def is_pressed(self, code):
+        return code in self._pressed
+
     @property
     def any_pressed(self):
         return bool(self._pressed)
