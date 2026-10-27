@@ -413,18 +413,24 @@ class Server:
         return None
 
     async def _create_folder(self, request, writer):
-        """POST /api/files/folder {"name": ...}: a new folder in Received for a sent folder."""
+        """POST /api/files/folder {"name": ..., "size": ...}: a new folder in Received for a
+        sent folder. `size` is the size of all its files: when they do not fit, nothing starts.
+        """
         if not request.same_origin():
             return await self._respond(writer, request, 403)
         device_id = self._session_device(request)
         if not device_id:
             return await self._json(writer, request, 403, {"error": "no_session"})
         try:
-            name = str(json.loads(request.body).get("name", ""))
-        except (ValueError, AttributeError):
+            data = json.loads(request.body)
+            name = str(data.get("name", ""))
+            size = int(data.get("size", 0))
+        except (ValueError, TypeError, AttributeError):
             return await self._respond(writer, request, 400)
         device = self.devices.devices.get(device_id, {}).get("name", "")
         try:
+            if size > self.transfers.free_space():
+                return await self._json(writer, request, 507, {"error": "no_space"})
             final = self.transfers.create_folder(name, device)
         except OSError as e:
             print(f"Cannot save files: {e}", flush=True)

@@ -85,7 +85,7 @@ address, so when the page is opened by IP and the IP changes, the device has to 
 - **Files**: drop or choose files to send them to `~/Downloads/DeckKeysTransfers/Received` on the Deck.
   Only during a session, streamed, never overwrites (`name (1).ext`), plain file names only.
   Folders (dropped or chosen) keep their structure and land in a new folder (`Photos (1)` if the
-  name is taken); links are never followed. Files are
+  name is taken); links are never followed; a folder that does not fit is refused before anything is sent. Files are
   owned by the Deck user, a failed upload leaves nothing behind. The Decky panel lists received
   files and can clear the list. Deck → PC: files the user puts in
   `DeckKeysTransfers/Send to PC` are listed with Download and, in Chrome and Edge on a PC,

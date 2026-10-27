@@ -85,7 +85,7 @@ do adresu, więc zmiana IP przy wejściu przez IP wymaga ponownego parowania.
 - **Pliki**: upuść albo wybierz pliki, aby wysłać je do `~/Downloads/DeckKeysTransfers/Received` na Decku.
   Tylko w trakcie sesji, strumieniowo, bez nadpisywania (`nazwa (1).ext`), tylko zwykłe nazwy plików.
   Foldery (upuszczone lub wybrane) zachowują strukturę i trafiają do nowego folderu (`Zdjęcia (1)`,
-  gdy nazwa jest zajęta); dowiązania nigdy nie są śledzone. Właścicielem plików
+  gdy nazwa jest zajęta); dowiązania nigdy nie są śledzone; folder, który się nie zmieści, jest odrzucany przed wysłaniem czegokolwiek. Właścicielem plików
   jest użytkownik Decka, przerwane wysyłanie nic nie zostawia. Panel Decky pokazuje
   odebrane pliki i pozwala wyczyścić listę. Deck → PC: pliki wrzucone do
   `DeckKeysTransfers/Send to PC` są na liście z „Pobierz”, a w Chrome i Edge na PC także

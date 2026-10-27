@@ -1264,12 +1264,16 @@ async function droppedFiles(dataTransfer) {
   return found;
 }
 
+// The Deck checks the size of the whole folder first, so a folder that does not fit is not
+// left half sent.
 async function createFolder(folder) {
+  const size = uploads.filter((u) => u.folder === folder && u.status !== "cancelled")
+    .reduce((sum, u) => sum + u.file.size, 0);
   try {
     const response = await fetch("/api/files/folder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: folder.name }),
+      body: JSON.stringify({ name: folder.name, size }),
     });
     const reply = await response.json().catch(() => ({}));
     if (response.ok) {
