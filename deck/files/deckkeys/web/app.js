@@ -68,6 +68,8 @@ const I18N = {
     folderSending: "{sent} of {size} · {done} of {count} files",
     folderSent: "{done} of {count} files sent",
     folderFailed: "{failed} of {count} files not sent: {error}",
+    titleDone: "Sent",
+    titleStopped: "Stopped",
     no_space: "Not enough space on the Deck.",
     save_failed: "The Deck could not save the file.",
     logFile: "File sent: {name}",
@@ -228,6 +230,8 @@ const I18N = {
     uploadFailed: "Nie wysłano",
     folderFiles: "plików: {count}",
     folderSending: "{sent} z {size} · pliki: {done} z {count}",
+    titleDone: "Wysłano",
+    titleStopped: "Zatrzymano",
     folderSent: "wysłane pliki: {done} z {count}",
     folderFailed: "Nie wysłano plików: {failed} z {count}: {error}",
     no_space: "Za mało miejsca na Decku.",
@@ -1098,8 +1102,40 @@ function newRow(folder) {
   return {
     folder, files: [], size: 0, next: 0, retry: [], delayed: 0, done: 0, doneBytes: 0,
     error: null, cancelled: false, creating: false, sending: new Map(), savedAs: null,
-    info: null, bar: null, samples: [],
+    info: null, bar: null, samples: [], batch: 0,
   };
+}
+
+// The tab title shows how far the transfer is ("42% · Elemental DeckKeys"), so it can be
+// followed from another tab. Files added while others are sent count towards the same total.
+// "Sent" stays in the title until the tab is looked at.
+const baseTitle = document.title;
+let batch = 0;
+let seenBatch = 0;
+
+function joinBatch(row) {
+  const pending = uploads.some((r) => r !== row && r.batch === batch
+    && ["waiting", "sending"].includes(rowStatus(r)));
+  if (!pending) batch += 1;
+  row.batch = batch;
+}
+
+function showTitle() {
+  const rows = uploads.filter((r) => r.batch === batch && !r.cancelled);
+  const statuses = rows.map(rowStatus);
+  let prefix = "";
+  if (statuses.includes("waiting") || statuses.includes("sending")) {
+    const size = rows.reduce((sum, r) => sum + r.size, 0);
+    const sent = rows.reduce((sum, r) => sum + rowSent(r), 0);
+    prefix = `${size ? Math.floor((sent * 100) / size) : 0}%`;
+  } else if (statuses.includes("failed")) {
+    prefix = t("titleStopped");
+  } else if (rows.length && seenBatch !== batch) {
+    if (document.hidden) prefix = t("titleDone");
+    else seenBatch = batch;
+  }
+  const title = prefix ? `${prefix} · ${baseTitle}` : baseTitle;
+  if (document.title !== title) document.title = title;
 }
 
 function formatDuration(seconds) {
@@ -1183,6 +1219,7 @@ function showProgress(row) {
   if (!row.bar) return;
   row.bar.value = rowSent(row);
   row.info.textContent = rowText(row, "sending") + rowSpeed(row);
+  showTitle();
 }
 
 function rowButton(li, label, action) {
@@ -1216,6 +1253,7 @@ function renderUploads() {
     if (status === "failed") {
       rowButton(li, "resume", () => {
         row.error = null;
+        joinBatch(row);
         renderUploads();
         nextUpload();
       });
@@ -1237,6 +1275,7 @@ function renderUploads() {
     }
     list.append(li);
   }
+  showTitle();
 }
 
 // Each entry is a file and its path in what was sent: "a.txt", or "Photos/2024/a.jpg" for a
@@ -1256,6 +1295,7 @@ function addFiles(entries) {
       row = newRow(null);
       uploads.push(row);
     }
+    if (!row.batch) joinBatch(row);
     row.files.push({ file, dir: parts.slice(1, -1).join("/"), path, tries: 0 });
     row.size += file.size;
   }
@@ -1523,6 +1563,7 @@ function bindFiles() {
   });
   document.addEventListener("visibilitychange", () => {
     if (active > 0) stayAwake(true);
+    showTitle();
   });
   $("uploads-clear").addEventListener("click", () => {
     for (let i = uploads.length - 1; i >= 0; i -= 1) {
