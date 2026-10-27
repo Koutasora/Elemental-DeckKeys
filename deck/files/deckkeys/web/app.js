@@ -58,6 +58,7 @@ const I18N = {
     cancel: "Cancel",
     uploadWaiting: "Waiting",
     uploadSending: "{sent} of {size}",
+    speedEta: "{speed}/s · about {time} left",
     uploadDone: "Saved as {name}",
     uploadCancelled: "Cancelled",
     uploadFailed: "Not sent",
@@ -217,6 +218,7 @@ const I18N = {
     cancel: "Anuluj",
     uploadWaiting: "Czeka",
     uploadSending: "{sent} z {size}",
+    speedEta: "{speed}/s · zostało ok. {time}",
     uploadDone: "Zapisano jako {name}",
     uploadCancelled: "Anulowano",
     uploadFailed: "Nie wysłano",
@@ -1087,8 +1089,32 @@ function formatSize(bytes) {
 function newRow(folder) {
   return {
     folder, files: [], size: 0, next: 0, done: 0, doneBytes: 0, failed: 0, error: null,
-    cancelled: false, current: null, sent: 0, savedAs: null, info: null, bar: null,
+    cancelled: false, current: null, sent: 0, savedAs: null, info: null, bar: null, samples: [],
   };
+}
+
+function formatDuration(seconds) {
+  const s = Math.max(1, Math.round(seconds));
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  return `${Math.floor(s / 3600)} h ${String(Math.round((s % 3600) / 60)).padStart(2, "0")} min`;
+}
+
+// Speed over the last ~10 s, so it follows changes (small files are slower) without jumping.
+// Shown after a few seconds, when there is enough to go on.
+function rowSpeed(row) {
+  const now = performance.now();
+  const sent = row.doneBytes + row.sent;
+  const samples = row.samples;
+  if (!samples.length || now - samples[samples.length - 1].time > 250) samples.push({ time: now, sent });
+  while (samples.length > 2 && now - samples[1].time > 10000) samples.shift();
+  const first = samples[0];
+  const seconds = (now - first.time) / 1000;
+  if (seconds < 3 || sent <= first.sent) return "";
+  const speed = (sent - first.sent) / seconds;
+  return ` · ${t("speedEta", {
+    speed: formatSize(speed), time: formatDuration((row.size - sent) / speed),
+  })}`;
 }
 
 function rowStatus(row) {
@@ -1138,7 +1164,7 @@ function rowText(row, status) {
 function showProgress(row) {
   if (!row.bar) return;
   row.bar.value = row.doneBytes + row.sent;
-  row.info.textContent = rowText(row, "sending");
+  row.info.textContent = rowText(row, "sending") + rowSpeed(row);
 }
 
 function renderUploads() {
