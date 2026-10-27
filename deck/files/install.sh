@@ -102,7 +102,8 @@ for _ in $(seq 20); do
 done
 
 echo
-echo "Installed. Elemental DeckKeys starts with the Deck, in Game Mode and Desktop Mode."
+version="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$dest/deckkeys/__init__.py" 2>/dev/null || true)"
+echo "Installed Elemental DeckKeys ${version:-}. It starts with the Deck, in Game Mode and Desktop Mode."
 echo "Application menu: Elemental DeckKeys – Pair, On/Off, Uninstall."
 if [ -d "$plugins/elemental-deckkeys" ]; then
   echo "Game Mode: Decky menu > Elemental DeckKeys."
