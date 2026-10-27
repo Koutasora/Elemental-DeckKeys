@@ -56,6 +56,8 @@ const I18N = {
     downloadFailed: "The file could not be downloaded.",
     clearList: "Clear list",
     cancel: "Cancel",
+    resume: "Resume",
+    connectionLost: "Connection lost",
     uploadWaiting: "Waiting",
     uploadSending: "{sent} of {size}",
     speedEta: "{speed}/s · about {time} left",
@@ -216,6 +218,8 @@ const I18N = {
     downloadFailed: "Nie udało się pobrać pliku.",
     clearList: "Wyczyść listę",
     cancel: "Anuluj",
+    resume: "Wznów",
+    connectionLost: "Połączenie przerwane",
     uploadWaiting: "Czeka",
     uploadSending: "{sent} z {size}",
     speedEta: "{speed}/s · zostało ok. {time}",
@@ -1073,7 +1077,11 @@ function bindPad() {
 // Rows of the upload list: a single file, or a sent folder with all its files. A row keeps
 // counters, so a folder of tens of thousands of files is never walked again while it is sent.
 const uploads = [];
-let uploading = false;
+// Several files at once: with many small files most of the time goes to the round trip of
+// each file, and the others keep the connection busy meanwhile.
+const PARALLEL = 4;
+const RETRIES = 3;
+let active = 0;
 
 function formatSize(bytes) {
   const units = ["B", "KB", "MB", "GB"];
@@ -1088,8 +1096,9 @@ function formatSize(bytes) {
 
 function newRow(folder) {
   return {
-    folder, files: [], size: 0, next: 0, done: 0, doneBytes: 0, failed: 0, error: null,
-    cancelled: false, current: null, sent: 0, savedAs: null, info: null, bar: null, samples: [],
+    folder, files: [], size: 0, next: 0, retry: [], delayed: 0, done: 0, doneBytes: 0,
+    error: null, cancelled: false, creating: false, sending: new Map(), savedAs: null,
+    info: null, bar: null, samples: [],
   };
 }
 
@@ -1100,11 +1109,21 @@ function formatDuration(seconds) {
   return `${Math.floor(s / 3600)} h ${String(Math.round((s % 3600) / 60)).padStart(2, "0")} min`;
 }
 
+function rowSent(row) {
+  let sent = row.doneBytes;
+  for (const loaded of row.sending.values()) sent += loaded;
+  return sent;
+}
+
+function rowLeft(row) {
+  return row.files.length - row.next + row.retry.length + row.delayed;
+}
+
 // Speed over the last ~10 s, so it follows changes (small files are slower) without jumping.
 // Shown after a few seconds, when there is enough to go on.
 function rowSpeed(row) {
   const now = performance.now();
-  const sent = row.doneBytes + row.sent;
+  const sent = rowSent(row);
   const samples = row.samples;
   if (!samples.length || now - samples[samples.length - 1].time > 250) samples.push({ time: now, sent });
   while (samples.length > 2 && now - samples[1].time > 10000) samples.shift();
@@ -1118,19 +1137,18 @@ function rowSpeed(row) {
 }
 
 function rowStatus(row) {
-  if (row.current) return "sending";
   if (row.cancelled) return "cancelled";
-  if (row.error) return "failed";
-  if (row.next < row.files.length) return row.done ? "sending" : "waiting";
+  if (row.error && !row.sending.size) return "failed";
+  if (row.creating || row.sending.size) return "sending";
+  if (rowLeft(row)) return row.done || row.next ? "sending" : "waiting";
   return "done";
 }
 
-// The rest of a row is not sent after an error: on a folder the reason (no space, no session,
-// connection lost) would be the same for every file left.
-function failRow(row, error) {
+// Stops a row until "Resume": no space, no session or a connection that keeps failing would
+// fail every file left in the same way.
+function stopRow(row, error) {
   row.error = error;
-  row.failed = row.files.length - row.done;
-  row.next = row.files.length;
+  row.samples = [];
 }
 
 function rowText(row, status) {
@@ -1138,7 +1156,7 @@ function rowText(row, status) {
   if (!row.folder) {
     return {
       waiting: t("uploadWaiting"),
-      sending: t("uploadSending", { sent: formatSize(row.sent), size: formatSize(row.size) }),
+      sending: t("uploadSending", { sent: formatSize(rowSent(row)), size: formatSize(row.size) }),
       done: t("uploadDone", { name: row.savedAs }),
       cancelled: t("uploadCancelled"),
       failed: `${t("uploadFailed")}: ${row.error}`,
@@ -1147,24 +1165,32 @@ function rowText(row, status) {
   return {
     waiting: t("uploadWaiting"),
     sending: t("folderSending", {
-      sent: formatSize(row.doneBytes + row.sent), size: formatSize(row.size), done: row.done, count,
+      sent: formatSize(rowSent(row)), size: formatSize(row.size), done: row.done, count,
     }),
     done: t("uploadDone", { name: `${row.folder.saved}/` }),
     cancelled: row.done
       ? `${t("uploadCancelled")} · ${t("folderSent", { done: row.done, count })}`
       : t("uploadCancelled"),
     failed: row.done
-      ? t("folderFailed", { failed: row.failed, count, error: row.error })
+      ? t("folderFailed", { failed: rowLeft(row), count, error: row.error })
       : `${t("uploadFailed")}: ${row.error}`,
   }[status];
 }
 
 // While a row is being sent only its bar and text change: rebuilding the list would replace
-// the Cancel button between press and release, so clicks would be lost.
+// the buttons between press and release, so clicks would be lost.
 function showProgress(row) {
   if (!row.bar) return;
-  row.bar.value = row.doneBytes + row.sent;
+  row.bar.value = rowSent(row);
   row.info.textContent = rowText(row, "sending") + rowSpeed(row);
+}
+
+function rowButton(li, label, action) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = t(label);
+  button.addEventListener("click", action);
+  li.append(button);
 }
 
 function renderUploads() {
@@ -1187,22 +1213,25 @@ function renderUploads() {
     li.append(name, info);
     row.info = info;
     row.bar = null;
-    if (status === "waiting" || status === "sending") {
-      const cancel = document.createElement("button");
-      cancel.type = "button";
-      cancel.textContent = t("cancel");
-      cancel.addEventListener("click", () => {
-        row.cancelled = true;
-        row.next = row.files.length;
-        if (row.current?.xhr) row.current.xhr.abort();
+    if (status === "failed") {
+      rowButton(li, "resume", () => {
+        row.error = null;
         renderUploads();
+        nextUpload();
       });
-      li.append(cancel);
+    }
+    if (status === "waiting" || status === "sending" || status === "failed") {
+      rowButton(li, "cancel", () => {
+        row.cancelled = true;
+        for (const xhr of row.sending.keys()) xhr.abort();
+        renderUploads();
+        nextUpload();
+      });
     }
     if (status === "sending") {
       const bar = document.createElement("progress");
       bar.max = row.size || 1;
-      bar.value = row.doneBytes + row.sent;
+      bar.value = rowSent(row);
       li.append(bar);
       row.bar = bar;
     }
@@ -1227,7 +1256,7 @@ function addFiles(entries) {
       row = newRow(null);
       uploads.push(row);
     }
-    row.files.push({ file, dir: parts.slice(1, -1).join("/"), path });
+    row.files.push({ file, dir: parts.slice(1, -1).join("/"), path, tries: 0 });
     row.size += file.size;
   }
   renderUploads();
@@ -1263,8 +1292,11 @@ async function droppedFiles(dataTransfer) {
 }
 
 // The Deck checks the size of the whole folder first, so a folder that does not fit is not
-// left half sent. Returns an error text, or null.
+// left half sent.
 async function createFolder(row) {
+  row.creating = true;
+  renderUploads();
+  let error = null;
   try {
     const response = await fetch("/api/files/folder", {
       method: "POST",
@@ -1272,15 +1304,104 @@ async function createFolder(row) {
       body: JSON.stringify({ name: row.folder.name, size: row.size }),
     });
     const reply = await response.json().catch(() => ({}));
-    if (!response.ok) return t(reply.error || "pairFailed");
-    row.folder.saved = reply.name;
-    addLog("file");
-    logEntries[logEntries.length - 1].name = `${reply.name}/`;
-    renderLog();
-    return null;
+    if (response.ok) {
+      row.folder.saved = reply.name;
+      addLog("file");
+      logEntries[logEntries.length - 1].name = `${reply.name}/`;
+      renderLog();
+    } else {
+      error = t(reply.error || "pairFailed");
+    }
   } catch {
-    return t("disconnected");
+    error = t("connectionLost");
   }
+  row.creating = false;
+  if (error && !row.cancelled) stopRow(row, error);
+  renderUploads();
+  nextUpload();
+}
+
+// Files are sent PARALLEL at a time, streamed with PUT; XMLHttpRequest reports progress.
+// Rows go in order: a sent folder is first created on the Deck, then its files go into it.
+function nextUpload() {
+  while (active < PARALLEL) {
+    const row = uploads.find((r) => !r.cancelled && !r.error && rowLeft(r) > r.delayed);
+    if (!row) break;
+    if (!state.session) {
+      stopRow(row, t("no_session"));
+      renderUploads();
+      continue;
+    }
+    if (row.folder && !row.folder.saved) {
+      if (!row.creating) createFolder(row);
+      break;
+    }
+    sendFile(row, row.retry.length ? row.retry.shift() : row.next++);
+  }
+  stayAwake(active > 0);
+}
+
+function sendFile(row, index) {
+  const entry = row.files[index];
+  const where = row.folder ? [row.folder.saved, entry.dir].filter(Boolean).join("/") : "";
+  const xhr = new XMLHttpRequest();
+  active += 1;
+  row.sending.set(xhr, 0);
+  xhr.open("PUT", `/api/files?name=${encodeURIComponent(entry.file.name)}`
+    + (where ? `&folder=${encodeURIComponent(where)}` : ""));
+  xhr.upload.onprogress = (event) => {
+    row.sending.set(xhr, event.loaded);
+    showProgress(row);
+  };
+  let failure = null;
+  xhr.onload = () => {
+    let reply = {};
+    try {
+      reply = JSON.parse(xhr.responseText);
+    } catch {
+      // No JSON body: the status code says enough.
+    }
+    if (xhr.status === 200) {
+      row.done += 1;
+      row.doneBytes += entry.file.size;
+      if (!row.folder) {  // a folder is logged once, when it is created
+        row.savedAs = reply.name;
+        addLog("file");
+        logEntries[logEntries.length - 1].name = reply.name;
+        renderLog();
+      }
+    } else {
+      // A busy or briefly failing Deck is tried again; no space or no session is not.
+      failure = { error: t(reply.error || "pairFailed"), retry: xhr.status >= 500 && xhr.status !== 507 };
+    }
+  };
+  xhr.onerror = () => { failure = { error: t("connectionLost"), retry: true }; };
+  xhr.onloadend = () => {
+    active -= 1;
+    row.sending.delete(xhr);
+    if (failure && !row.cancelled) {
+      entry.tries += 1;
+      if (failure.retry && entry.tries < RETRIES) {
+        row.delayed += 1;
+        setTimeout(() => {
+          row.delayed -= 1;
+          row.retry.push(index);
+          nextUpload();
+        }, 2000 * entry.tries);
+      } else {
+        entry.tries = 0;
+        row.retry.push(index);
+        stopRow(row, failure.error);
+      }
+    }
+    const status = rowStatus(row);
+    if (status === "sending" && row.bar) showProgress(row);
+    else renderUploads();
+    nextUpload();
+  };
+  if (row.bar) showProgress(row);
+  else renderUploads();
+  xhr.send(entry.file);
 }
 
 // While files are sent the screen stays on, which also keeps the PC from going to sleep.
@@ -1299,89 +1420,13 @@ async function stayAwake(on) {
   try {
     const lock = await navigator.wakeLock.request("screen");
     lock.addEventListener("release", () => { if (wakeLock === lock) wakeLock = null; });
-    if (uploading) wakeLock = lock;
+    if (active > 0) wakeLock = lock;
     else lock.release().catch(() => {});
   } catch {
     // Not allowed here (battery saver, browser setting): files are sent anyway.
   } finally {
     wakeAsked = false;
   }
-}
-
-// One file at a time, streamed with PUT; XMLHttpRequest reports upload progress.
-// A sent folder is first created on the Deck, then its files go into it.
-async function nextUpload() {
-  if (uploading) return;
-  const row = uploads.find((r) => r.next < r.files.length);
-  if (!row) {
-    stayAwake(false);
-    return;
-  }
-  if (!state.session) {
-    failRow(row, t("no_session"));
-    renderUploads();
-    nextUpload();
-    return;
-  }
-  uploading = true;
-  stayAwake(true);
-  if (row.folder && !row.folder.saved) {
-    row.current = { xhr: null };
-    renderUploads();
-    const error = await createFolder(row);
-    row.current = null;
-    if (error && !row.cancelled) failRow(row, error);
-    if (error || row.cancelled) {
-      uploading = false;
-      renderUploads();
-      nextUpload();
-      return;
-    }
-  }
-  const entry = row.files[row.next];
-  row.next += 1;
-  row.sent = 0;
-  const where = row.folder ? [row.folder.saved, entry.dir].filter(Boolean).join("/") : "";
-  const xhr = new XMLHttpRequest();
-  row.current = { xhr };
-  xhr.open("PUT", `/api/files?name=${encodeURIComponent(entry.file.name)}`
-    + (where ? `&folder=${encodeURIComponent(where)}` : ""));
-  xhr.upload.onprogress = (event) => {
-    row.sent = event.loaded;
-    showProgress(row);
-  };
-  xhr.onload = () => {
-    let reply = {};
-    try {
-      reply = JSON.parse(xhr.responseText);
-    } catch {
-      // No JSON body: the status code says enough.
-    }
-    if (xhr.status === 200) {
-      row.done += 1;
-      row.doneBytes += entry.file.size;
-      if (!row.folder) {  // a folder is logged once, when it is created
-        row.savedAs = reply.name;
-        addLog("file");
-        logEntries[logEntries.length - 1].name = reply.name;
-        renderLog();
-      }
-    } else {
-      failRow(row, t(reply.error || "pairFailed"));
-    }
-  };
-  xhr.onerror = () => failRow(row, t("disconnected"));
-  xhr.onloadend = () => {
-    row.current = null;
-    row.sent = 0;
-    uploading = false;
-    if (rowStatus(row) === "sending") showProgress(row);  // the next file of the same folder
-    else renderUploads();
-    nextUpload();
-  };
-  if (row.bar) showProgress(row);
-  else renderUploads();
-  xhr.send(entry.file);
 }
 
 function downloadUrl(name) {
@@ -1477,7 +1522,7 @@ function bindFiles() {
     });
   });
   document.addEventListener("visibilitychange", () => {
-    if (uploading) stayAwake(true);
+    if (active > 0) stayAwake(true);
   });
   $("uploads-clear").addEventListener("click", () => {
     for (let i = uploads.length - 1; i >= 0; i -= 1) {
