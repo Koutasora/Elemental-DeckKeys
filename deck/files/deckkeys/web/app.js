@@ -1283,12 +1283,40 @@ async function createFolder(row) {
   }
 }
 
+// While files are sent the screen stays on, which also keeps the PC from going to sleep.
+// The browser drops the lock when the tab is hidden; it is taken again when it comes back.
+let wakeLock = null;
+let wakeAsked = false;
+
+async function stayAwake(on) {
+  if (!on) {
+    wakeLock?.release().catch(() => {});
+    wakeLock = null;
+    return;
+  }
+  if (wakeLock || wakeAsked || !navigator.wakeLock || document.visibilityState !== "visible") return;
+  wakeAsked = true;
+  try {
+    const lock = await navigator.wakeLock.request("screen");
+    lock.addEventListener("release", () => { if (wakeLock === lock) wakeLock = null; });
+    if (uploading) wakeLock = lock;
+    else lock.release().catch(() => {});
+  } catch {
+    // Not allowed here (battery saver, browser setting): files are sent anyway.
+  } finally {
+    wakeAsked = false;
+  }
+}
+
 // One file at a time, streamed with PUT; XMLHttpRequest reports upload progress.
 // A sent folder is first created on the Deck, then its files go into it.
 async function nextUpload() {
   if (uploading) return;
   const row = uploads.find((r) => r.next < r.files.length);
-  if (!row) return;
+  if (!row) {
+    stayAwake(false);
+    return;
+  }
   if (!state.session) {
     failRow(row, t("no_session"));
     renderUploads();
@@ -1296,6 +1324,7 @@ async function nextUpload() {
     return;
   }
   uploading = true;
+  stayAwake(true);
   if (row.folder && !row.folder.saved) {
     row.current = { xhr: null };
     renderUploads();
@@ -1446,6 +1475,9 @@ function bindFiles() {
     droppedFiles(event.dataTransfer).then(addFiles).finally(() => {
       hint.textContent = t("dropHint");
     });
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (uploading) stayAwake(true);
   });
   $("uploads-clear").addEventListener("click", () => {
     for (let i = uploads.length - 1; i >= 0; i -= 1) {

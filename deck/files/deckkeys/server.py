@@ -30,6 +30,7 @@ QUIET_HEARTBEAT_TIMEOUT = 90
 # long is released here: a key-up delayed by Wi-Fi would otherwise start the Deck's own key
 # repeat (after about 0.6 s) and type "yyy".
 KEY_HOLD_TIMEOUT = 0.3
+AWAKE_GRACE = 60
 IDLE_TIMEOUT = 600
 SESSION_MINUTES = (5, 10, 15, 20, 30)
 MAX_TEXT = 20000
@@ -163,6 +164,8 @@ class Server:
         self.mouse = None
         self.client = None
         self.last_paired = None
+        self._inhibitor = None
+        self._awake_until = 0.0
 
     def _load_settings(self):
         try:
@@ -184,6 +187,36 @@ class Server:
             if self.client:
                 await self._drop_client(self.client, "disabled")
         print("Switched on." if on else "Switched off.", flush=True)
+
+    # --- Staying awake while files move ------------------------------------
+
+    def _transferring(self):
+        """Called while files arrive or leave: the Deck must not go to sleep meanwhile.
+
+        Sleep is blocked through logind (systemd-inhibit) and released AWAKE_GRACE seconds
+        after the last transfer, so the short gaps between the files of a folder are covered.
+        """
+        self._awake_until = time.monotonic() + AWAKE_GRACE
+        if self._inhibitor is None:
+            self._inhibitor = asyncio.create_task(self._stay_awake())
+
+    async def _stay_awake(self):
+        process = None
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "systemd-inhibit", "--what=sleep:idle", "--who=Elemental DeckKeys",
+                "--why=Transferring files", "--mode=block", "sleep", "infinity",
+                stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL)
+            while time.monotonic() < self._awake_until:
+                await asyncio.sleep(5)
+        except OSError as e:
+            print(f"Cannot block sleep: {e}", flush=True)
+        finally:
+            if process is not None and process.returncode is None:
+                process.terminate()
+                await process.wait()
+            self._inhibitor = None
 
     # --- HTTP ---------------------------------------------------------------
 
@@ -478,6 +511,7 @@ class Server:
                         raise ConnectionError("upload interrupted")
                     await asyncio.to_thread(out.write, chunk)
                     remaining -= len(chunk)
+                    self._transferring()
                     if self.client:
                         self.client.last_activity = time.monotonic()
             device = self.devices.devices.get(device_id, {}).get("name", "")
@@ -519,6 +553,7 @@ class Server:
                     break
                 writer.write(chunk)
                 await writer.drain()
+                self._transferring()
                 if self.client:
                     self.client.last_activity = time.monotonic()
 
