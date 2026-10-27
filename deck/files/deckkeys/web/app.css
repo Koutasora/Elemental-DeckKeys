@@ -293,6 +293,7 @@ kbd { font-family: var(--mono); font-size: 13px; }
   border-radius: var(--radius);
 }
 
+.drop-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gap); }
 .drop.over { border: 2px solid var(--accent); color: var(--text); }
 .drop.off { opacity: 0.6; }
 
@@ -324,6 +325,7 @@ progress { flex: 1; min-width: 120px; accent-color: var(--accent); }
 .file-list progress { grid-column: 1 / -1; width: 100%; }
 .file-list li > button, .file-list .actions { grid-column: 2; grid-row: 1 / span 2; }
 .file-list .actions { display: flex; gap: 8px; }
+.file-list .actions:empty { display: none; }
 
 .saved li { display: flex; }
 

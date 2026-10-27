@@ -83,7 +83,9 @@ address, so when the page is opened by IP and the IP changes, the device has to 
   whether the PC keyboard goes to the Deck too while the mouse is captured; a small box shows
   what was typed and the last action, as in Live. Sensitivity in Settings.
 - **Files**: drop or choose files to send them to `~/Downloads/DeckKeysTransfers/Received` on the Deck.
-  Only during a session, streamed, never overwrites (`name (1).ext`), plain file names only,
+  Only during a session, streamed, never overwrites (`name (1).ext`), plain file names only.
+  Folders (dropped or chosen) keep their structure and land in a new folder (`Photos (1)` if the
+  name is taken); links are never followed; a folder that does not fit is refused before anything is sent. While files move, the Deck blocks sleep (systemd-inhibit, released 60 s after the last transfer) and the page keeps the PC screen on (Wake Lock). Files are
   owned by the Deck user, a failed upload leaves nothing behind. The Decky panel lists received
   files and can clear the list. Deck → PC: files the user puts in
   `DeckKeysTransfers/Send to PC` are listed with Download and, in Chrome and Edge on a PC,

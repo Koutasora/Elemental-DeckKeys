@@ -18,6 +18,7 @@ OUTBOX = "Send to PC"
 SPACE_RESERVE = 200 * 1024 * 1024
 MAX_NAME_BYTES = 200
 MAX_RECEIVED = 20
+SAVE_INTERVAL = 5
 
 
 def safe_name(raw):
@@ -39,6 +40,7 @@ class Transfers:
         self.inbox = os.path.join(self.folder, INBOX)
         self.outbox = os.path.join(self.folder, OUTBOX)
         self._received_path = os.path.join(data_dir, "received.json")
+        self._saved_at = 0.0
         try:
             with open(self._received_path, encoding="utf-8") as f:
                 self.received = json.load(f)
@@ -75,33 +77,94 @@ class Transfers:
         files.sort(key=lambda f: -f["time"])
         return files[:200]
 
-    def open_part(self):
-        """A hidden temporary file for an upload in progress."""
+    def _open_dir(self, parts=(), create=False):
+        """A descriptor of Received or of a folder inside it, opened without following links."""
         self._ensure_folder()
-        path = os.path.join(self.inbox, f".deckkeys-{secrets.token_hex(6)}.part")
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
-        return path, os.fdopen(fd, "wb")
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        fd = os.open(self.inbox, flags)
+        try:
+            for part in parts:
+                if create:
+                    try:
+                        os.mkdir(part, 0o755, dir_fd=fd)
+                        os.chown(part, self.uid, self.gid, dir_fd=fd, follow_symlinks=False)
+                    except FileExistsError:
+                        pass
+                inner = os.open(part, flags, dir_fd=fd)
+                os.close(fd)
+                fd = inner
+        except BaseException:
+            os.close(fd)
+            raise
+        return fd
+
+    def create_folder(self, name, device):
+        """A new folder in Received for a sent folder, never an existing one. Returns its name."""
+        fd = self._open_dir()
+        try:
+            base = safe_name(name)
+            for n in range(1000):
+                final = base if n == 0 else f"{base} ({n})"
+                try:
+                    os.mkdir(final, 0o755, dir_fd=fd)
+                except FileExistsError:
+                    continue
+                os.chown(final, self.uid, self.gid, dir_fd=fd, follow_symlinks=False)
+                self._remember(final + "/", 0, device)
+                return final
+        finally:
+            os.close(fd)
+        raise FileExistsError(name)
+
+    def open_part(self, folder=()):
+        """A hidden temporary file for an upload in progress, in Received or a folder of it.
+
+        `folder` is a path made of safe names whose first part was made by create_folder;
+        the folders below it are created as needed.
+        """
+        if folder:
+            fd = self._open_dir(folder[:1])
+            os.close(fd)  # the sent folder must already exist
+        dir_fd = self._open_dir(folder, create=True)
+        name = f".deckkeys-{secrets.token_hex(6)}.part"
+        try:
+            fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644,
+                         dir_fd=dir_fd)
+        except BaseException:
+            os.close(dir_fd)
+            raise
+        return (dir_fd, name, tuple(folder)), os.fdopen(fd, "wb")
 
     def finish(self, part, name, size, device):
-        """Gives the upload its name without overwriting anything. Returns the final name."""
-        os.chown(part, self.uid, self.gid)
+        """Gives the upload its name without overwriting anything. Returns the final name.
+
+        On an error the part stays as it is, for discard().
+        """
+        dir_fd, temp, folder = part
+        os.chown(temp, self.uid, self.gid, dir_fd=dir_fd, follow_symlinks=False)
         stem, ext = os.path.splitext(safe_name(name))
         for n in range(1000):
             final = f"{stem}{ext}" if n == 0 else f"{stem} ({n}){ext}"
-            try:
-                os.link(part, os.path.join(self.inbox, final))  # fails if the name is taken
+            try:  # fails if the name is taken
+                os.link(temp, final, src_dir_fd=dir_fd, dst_dir_fd=dir_fd, follow_symlinks=False)
             except FileExistsError:
                 continue
-            os.unlink(part)
-            self._remember(final, size, device)
+            os.unlink(temp, dir_fd=dir_fd)
+            if folder:
+                self._add_to_folder(folder[0], size)
+            else:
+                self._remember(final, size, device)
+            os.close(dir_fd)
             return final
         raise FileExistsError(name)
 
     def discard(self, part):
+        dir_fd, temp, _ = part
         try:
-            os.unlink(part)
+            os.unlink(temp, dir_fd=dir_fd)
         except OSError:
             pass
+        os.close(dir_fd)
 
     def open_file(self, name):
         """A file of "Send to PC" for download, or None. Links and hidden files are refused."""
@@ -122,10 +185,23 @@ class Transfers:
         del self.received[MAX_RECEIVED:]
         self._save_received()
 
+    def _add_to_folder(self, folder, size):
+        """A sent folder is one entry on the list; its size grows with every file.
+
+        With thousands of small files the list is written at most every few seconds.
+        """
+        for entry in self.received:
+            if entry["name"] == folder + "/":
+                entry["size"] += size
+                if time.monotonic() - self._saved_at > SAVE_INTERVAL:
+                    self._save_received()
+                return
+
     def clear_received(self):
         self.received = []
         self._save_received()
 
     def _save_received(self):
+        self._saved_at = time.monotonic()
         with open(self._received_path, "w", encoding="utf-8") as f:
             json.dump(self.received, f)

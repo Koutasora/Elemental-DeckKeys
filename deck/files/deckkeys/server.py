@@ -18,7 +18,7 @@ from . import __version__, certs, qr
 from .keyboard import (BROWSER_CODES, BUTTONS, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard,
                        VirtualMouse)
 from .pairing import CODE_LIFETIME, KINDS, DeviceStore, Pairing
-from .transfers import Transfers
+from .transfers import Transfers, safe_name
 from .websocket import WebSocket, accept_key
 
 COOKIE = "deckkeys"
@@ -30,11 +30,13 @@ QUIET_HEARTBEAT_TIMEOUT = 90
 # long is released here: a key-up delayed by Wi-Fi would otherwise start the Deck's own key
 # repeat (after about 0.6 s) and type "yyy".
 KEY_HOLD_TIMEOUT = 0.3
+AWAKE_GRACE = 60
 IDLE_TIMEOUT = 600
 SESSION_MINUTES = (5, 10, 15, 20, 30)
 MAX_TEXT = 20000
 MAX_BODY = 64 * 1024
 MAX_HEAD = 16 * 1024
+MAX_FOLDER_DEPTH = 32
 
 STATIC = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -53,6 +55,7 @@ HOST_RE = re.compile(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$|^\[[0-9A-Fa-f:.]+\](:\d{1,5}
 class Request:
     def __init__(self, method, path, headers, body, query=""):
         self.peer = None
+        self.keep_alive = False  # set where the whole body was read, so the next can follow
         self.query = parse_qs(query)
         self.method = method
         self.path = path
@@ -161,6 +164,8 @@ class Server:
         self.mouse = None
         self.client = None
         self.last_paired = None
+        self._inhibitor = None
+        self._awake_until = 0.0
 
     def _load_settings(self):
         try:
@@ -183,6 +188,36 @@ class Server:
                 await self._drop_client(self.client, "disabled")
         print("Switched on." if on else "Switched off.", flush=True)
 
+    # --- Staying awake while files move ------------------------------------
+
+    def _transferring(self):
+        """Called while files arrive or leave: the Deck must not go to sleep meanwhile.
+
+        Sleep is blocked through logind (systemd-inhibit) and released AWAKE_GRACE seconds
+        after the last transfer, so the short gaps between the files of a folder are covered.
+        """
+        self._awake_until = time.monotonic() + AWAKE_GRACE
+        if self._inhibitor is None:
+            self._inhibitor = asyncio.create_task(self._stay_awake())
+
+    async def _stay_awake(self):
+        process = None
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "systemd-inhibit", "--what=sleep:idle", "--who=Elemental DeckKeys",
+                "--why=Transferring files", "--mode=block", "sleep", "infinity",
+                stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL)
+            while time.monotonic() < self._awake_until:
+                await asyncio.sleep(5)
+        except OSError as e:
+            print(f"Cannot block sleep: {e}", flush=True)
+        finally:
+            if process is not None and process.returncode is None:
+                process.terminate()
+                await process.wait()
+            self._inhibitor = None
+
     # --- HTTP ---------------------------------------------------------------
 
     async def _respond(self, writer, request, status, body=b"", content_type=None,
@@ -192,7 +227,7 @@ class Server:
         headers = [
             f"HTTP/1.1 {status} {STATUS_TEXT.get(status, '')}",
             f"Content-Length: {len(body)}",
-            "Connection: close",
+            "Connection: keep-alive" if request and request.keep_alive else "Connection: close",
             "Cache-Control: no-store",
             "X-Content-Type-Options: nosniff",
             "Referrer-Policy: no-referrer",
@@ -217,9 +252,14 @@ class Server:
                 return
             if not self.enabled and not is_loopback(peer[0]):
                 return
-            request = await asyncio.wait_for(read_request(reader), 10)
-            request.peer = peer[0]
-            await self._route(request, reader, writer)
+            # A folder is many uploads in a row: they reuse the connection instead of a new
+            # TLS handshake for every file.
+            while True:
+                request = await asyncio.wait_for(read_request(reader), 10)
+                request.peer = peer[0]
+                await self._route(request, reader, writer)
+                if not request.keep_alive or not self.enabled:
+                    break
         except (asyncio.TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError,
                 ConnectionError, ssl.SSLError, ValueError):
             pass
@@ -324,6 +364,8 @@ class Server:
             return await self._json(writer, request, 200, {"url": url, "svg": qr.svg(url)})
         if path == "/api/files" and method == "PUT":
             return await self._upload(request, reader, writer)
+        if path == "/api/files/folder" and method == "POST":
+            return await self._create_folder(request, writer)
         if path == "/api/files" and method == "GET":
             if not self._session_device(request):
                 return await self._json(writer, request, 403, {"error": "no_session"})
@@ -409,8 +451,37 @@ class Server:
             return device_id
         return None
 
+    async def _create_folder(self, request, writer):
+        """POST /api/files/folder {"name": ..., "size": ...}: a new folder in Received for a
+        sent folder. `size` is the size of all its files: when they do not fit, nothing starts.
+        """
+        if not request.same_origin():
+            return await self._respond(writer, request, 403)
+        device_id = self._session_device(request)
+        if not device_id:
+            return await self._json(writer, request, 403, {"error": "no_session"})
+        try:
+            data = json.loads(request.body)
+            name = str(data.get("name", ""))
+            size = int(data.get("size", 0))
+        except (ValueError, TypeError, AttributeError):
+            return await self._respond(writer, request, 400)
+        request.keep_alive = True
+        device = self.devices.devices.get(device_id, {}).get("name", "")
+        try:
+            if size > self.transfers.free_space():
+                return await self._json(writer, request, 507, {"error": "no_space"})
+            final = self.transfers.create_folder(name, device)
+        except OSError as e:
+            print(f"Cannot save files: {e}", flush=True)
+            return await self._json(writer, request, 500, {"error": "save_failed"})
+        await self._json(writer, request, 200, {"name": final})
+
     async def _upload(self, request, reader, writer):
-        """PUT /api/files?name=...: one file, streamed into the transfers folder."""
+        """PUT /api/files?name=...[&folder=...]: one file, streamed into the transfers folder.
+
+        `folder` is the file's folder inside a folder made by POST /api/files/folder.
+        """
         if not request.same_origin():
             return await self._respond(writer, request, 403)
         device_id = self._session_device(request)
@@ -420,12 +491,14 @@ class Server:
             length = int(request.headers["content-length"])
         except (KeyError, ValueError):
             return await self._respond(writer, request, 411)
-        if length < 0:
+        folder = [safe_name(p) for p in
+                  request.query.get("folder", [""])[0].replace("\\", "/").split("/") if p]
+        if length < 0 or len(folder) > MAX_FOLDER_DEPTH:
             return await self._respond(writer, request, 400)
         try:
             if length > self.transfers.free_space():
                 return await self._json(writer, request, 507, {"error": "no_space"})
-            part, out = self.transfers.open_part()
+            part, out = self.transfers.open_part(folder)
         except OSError as e:
             print(f"Cannot save files: {e}", flush=True)
             return await self._json(writer, request, 500, {"error": "save_failed"})
@@ -433,11 +506,17 @@ class Server:
             with out:
                 remaining = length
                 while remaining:
+                    # A file being sent stops with the session (or the main switch), like
+                    # the files that have not started yet.
+                    if not self.enabled or self._session_device(request) != device_id:
+                        self.transfers.discard(part)
+                        return await self._json(writer, request, 403, {"error": "no_session"})
                     chunk = await asyncio.wait_for(reader.read(min(1 << 20, remaining)), 60)
                     if not chunk:
                         raise ConnectionError("upload interrupted")
                     await asyncio.to_thread(out.write, chunk)
                     remaining -= len(chunk)
+                    self._transferring()
                     if self.client:
                         self.client.last_activity = time.monotonic()
             device = self.devices.devices.get(device_id, {}).get("name", "")
@@ -446,12 +525,15 @@ class Server:
         except BaseException:
             self.transfers.discard(part)
             raise
-        print(f"Received: {name} ({length} bytes)", flush=True)
+        if not folder:  # a folder's files would flood the log
+            print(f"Received: {name} ({length} bytes)", flush=True)
+        request.keep_alive = True
         await self._json(writer, request, 200, {"name": name, "size": length})
 
     async def _download(self, request, writer):
         """GET /api/files/download?name=...: one file of "Send to PC", streamed."""
-        if not self._session_device(request):
+        device_id = self._session_device(request)
+        if not device_id:
             return await self._json(writer, request, 403, {"error": "no_session"})
         name = request.query.get("name", [""])[0]
         f = self.transfers.open_file(name)  # checks the name
@@ -472,11 +554,14 @@ class Server:
                 "", "",
             ]).encode())
             while True:
+                if not self.enabled or self._session_device(request) != device_id:
+                    break  # the connection is closed, so the browser sees it unfinished
                 chunk = await asyncio.to_thread(f.read, 1 << 20)
                 if not chunk:
                     break
                 writer.write(chunk)
                 await writer.drain()
+                self._transferring()
                 if self.client:
                     self.client.last_activity = time.monotonic()
 
