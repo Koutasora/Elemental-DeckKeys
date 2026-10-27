@@ -506,6 +506,11 @@ class Server:
             with out:
                 remaining = length
                 while remaining:
+                    # A file being sent stops with the session (or the main switch), like
+                    # the files that have not started yet.
+                    if not self.enabled or self._session_device(request) != device_id:
+                        self.transfers.discard(part)
+                        return await self._json(writer, request, 403, {"error": "no_session"})
                     chunk = await asyncio.wait_for(reader.read(min(1 << 20, remaining)), 60)
                     if not chunk:
                         raise ConnectionError("upload interrupted")
@@ -527,7 +532,8 @@ class Server:
 
     async def _download(self, request, writer):
         """GET /api/files/download?name=...: one file of "Send to PC", streamed."""
-        if not self._session_device(request):
+        device_id = self._session_device(request)
+        if not device_id:
             return await self._json(writer, request, 403, {"error": "no_session"})
         name = request.query.get("name", [""])[0]
         f = self.transfers.open_file(name)  # checks the name
@@ -548,6 +554,8 @@ class Server:
                 "", "",
             ]).encode())
             while True:
+                if not self.enabled or self._session_device(request) != device_id:
+                    break  # the connection is closed, so the browser sees it unfinished
                 chunk = await asyncio.to_thread(f.read, 1 << 20)
                 if not chunk:
                     break
