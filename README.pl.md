@@ -30,7 +30,7 @@ czegokolwiek na PC.
 | **Na żywo** | Klawiatura pisze na Decku w trakcie naciskania klawiszy. Ctrl+V wpisuje schowek z PC. Makra na skróty, które przeglądarka zatrzymuje dla siebie (Alt+F4, Alt+Tab, Ctrl+W, Ctrl+T, Ctrl+A, F11, Super). |
 | **Multimedia** | Odtwórz/pauza, poprzedni, następny, stop, głośność i wyciszenie. |
 | **Touchpad** | Na PC strona przejmuje mysz (i, jeśli chcesz, klawiaturę) do wciśnięcia Esc. Na telefonie pole działa jak touchpad w laptopie. |
-| **Pliki** | Wysyłanie plików do `Downloads/DeckKeysTransfers/Received` na Decku. Pobieranie tego, co wrzucisz do `Downloads/DeckKeysTransfers/Send to PC` (z „Zapisz jako…” w Chrome i Edge). |
+| **Pliki** | Wysyłanie plików i całych folderów do `Downloads/DeckKeysTransfers/Received` na Decku. Pobieranie tego, co wrzucisz do `Downloads/DeckKeysTransfers/Send to PC` (z „Zapisz jako…” w Chrome i Edge). |
 
 Do tego: log wysłanych rzeczy (kliknięcie linii ją kopiuje), „Ukryj wpisywany tekst” dla haseł,
 jasny i ciemny motyw, angielski i polski oraz układ na telefon w pionie i w poziomie.

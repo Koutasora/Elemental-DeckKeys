@@ -29,7 +29,7 @@ Works in Game Mode and Desktop Mode. Nothing to plug in, no SSH, nothing to inst
 | **Live** | Your keyboard types on the Deck as you press keys. Ctrl+V types the PC clipboard. Macros for shortcuts the browser keeps for itself (Alt+F4, Alt+Tab, Ctrl+W, Ctrl+T, Ctrl+A, F11, Super). |
 | **Media** | Play/pause, previous, next, stop, volume and mute. |
 | **Touchpad** | On a PC the page takes your mouse (and, if you want, your keyboard) until you press Esc. On a phone the box works like a laptop touchpad. |
-| **Files** | Send files to `Downloads/DeckKeysTransfers/Received` on the Deck. Download what you put in `Downloads/DeckKeysTransfers/Send to PC` (with “Save as…” in Chrome and Edge). |
+| **Files** | Send files and whole folders to `Downloads/DeckKeysTransfers/Received` on the Deck. Download what you put in `Downloads/DeckKeysTransfers/Send to PC` (with “Save as…” in Chrome and Edge). |
 
 Also: a log of what was sent (click a line to copy it), “Hide typed text” for passwords,
 light and dark theme, English and Polish, and a layout for phones in both orientations.

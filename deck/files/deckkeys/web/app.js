@@ -42,9 +42,10 @@ const I18N = {
     tabMedia: "Media",
     tabPad: "Touchpad",
     tabFiles: "Files",
-    dropHint: "Drop files here to send them to the Deck",
+    dropHint: "Drop files or folders here to send them to the Deck",
     chooseFiles: "Choose files",
-    filesFolder: "Files are saved on the Deck in Downloads/DeckKeysTransfers/Received. Nothing is overwritten.",
+    chooseFolder: "Choose folder",
+    filesFolder: "Files are saved on the Deck in Downloads/DeckKeysTransfers/Received, folders with everything inside. Nothing is overwritten.",
     fromDeck: "Get from the Deck",
     refresh: "Refresh",
     outboxHint: "On the Deck, put files in Downloads/DeckKeysTransfers/Send to PC to get them here.",
@@ -195,9 +196,10 @@ const I18N = {
     tabMedia: "Multimedia",
     tabPad: "Touchpad",
     tabFiles: "Pliki",
-    dropHint: "Upuść tu pliki, aby wysłać je na Decka",
+    dropHint: "Upuść tu pliki lub foldery, aby wysłać je na Decka",
     chooseFiles: "Wybierz pliki",
-    filesFolder: "Pliki zapisują się na Decku w Downloads/DeckKeysTransfers/Received. Nic nie jest nadpisywane.",
+    chooseFolder: "Wybierz folder",
+    filesFolder: "Pliki zapisują się na Decku w Downloads/DeckKeysTransfers/Received, foldery razem z zawartością. Nic nie jest nadpisywane.",
     fromDeck: "Pobierz z Decka",
     refresh: "Odśwież",
     outboxHint: "Na Decku wrzuć pliki do Downloads/DeckKeysTransfers/Send to PC, aby pobrać je tutaj.",
@@ -1078,7 +1080,7 @@ function renderUploads() {
     const li = document.createElement("li");
     const name = document.createElement("span");
     name.className = "name";
-    name.textContent = `${item.file.name} · ${formatSize(item.file.size)}`;
+    name.textContent = `${item.path} · ${formatSize(item.file.size)}`;
     const info = document.createElement("span");
     info.className = "info";
     const texts = {
@@ -1115,28 +1117,107 @@ function renderUploads() {
   }
 }
 
-function addFiles(files) {
-  for (const file of files) uploads.push({ file, status: "waiting", sent: 0, xhr: null });
+// Each entry is a file and its path in what was sent: "a.txt", or "Photos/2024/a.jpg" for a
+// file of a sent folder. Every sent folder becomes a new folder on the Deck.
+function addFiles(entries) {
+  const folders = new Map();
+  for (const { file, path } of entries) {
+    const parts = path.split("/");
+    let folder = null;
+    if (parts.length > 1) {
+      if (!folders.has(parts[0])) folders.set(parts[0], { name: parts[0], saved: null, error: null });
+      folder = folders.get(parts[0]);
+    }
+    uploads.push({
+      file, path, folder, dir: parts.slice(1, -1).join("/"), status: "waiting", sent: 0, xhr: null,
+    });
+  }
   renderUploads();
   nextUpload();
 }
 
+function plainFiles(files) {
+  return [...files].map((file) => ({ file, path: file.webkitRelativePath || file.name }));
+}
+
+// Folders can only be read through file system entries: dataTransfer.files lists just their
+// names. The entries have to be taken before the first await, while the drop event lasts.
+async function droppedFiles(dataTransfer) {
+  const entries = [...dataTransfer.items].map((item) => item.webkitGetAsEntry?.()).filter(Boolean);
+  if (!entries.length) return plainFiles(dataTransfer.files);
+  const found = [];
+  async function walk(entry, path) {
+    if (entry.isFile) {
+      try {
+        const file = await new Promise((ok, fail) => entry.file(ok, fail));
+        found.push({ file, path: path + entry.name });
+      } catch {
+        // A file that cannot be read (removed, no access) is left out.
+      }
+      return;
+    }
+    const reader = entry.createReader();
+    for (;;) {
+      const batch = await new Promise((ok, fail) => reader.readEntries(ok, fail));
+      if (!batch.length) break;
+      for (const child of batch) await walk(child, `${path}${entry.name}/`);
+    }
+  }
+  for (const entry of entries) await walk(entry, "");
+  return found;
+}
+
+async function createFolder(folder) {
+  try {
+    const response = await fetch("/api/files/folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: folder.name }),
+    });
+    const reply = await response.json().catch(() => ({}));
+    if (response.ok) {
+      folder.saved = reply.name;
+      addLog("file");
+      logEntries[logEntries.length - 1].name = `${reply.name}/`;
+      renderLog();
+    } else {
+      folder.error = t(reply.error || "pairFailed");
+    }
+  } catch {
+    folder.error = t("disconnected");
+  }
+}
+
 // One file at a time, streamed with PUT; XMLHttpRequest reports upload progress.
-function nextUpload() {
+// A sent folder is first created on the Deck, then its files go into it.
+async function nextUpload() {
   if (uploading) return;
   const item = uploads.find((u) => u.status === "waiting");
   if (!item) return;
-  if (!state.session) {
-    Object.assign(item, { status: "failed", error: t("no_session") });
+  if (!state.session || item.folder?.error) {
+    Object.assign(item, { status: "failed", error: item.folder?.error || t("no_session") });
     renderUploads();
     nextUpload();
     return;
   }
   uploading = true;
   item.status = "sending";
+  if (item.folder && !item.folder.saved) {
+    renderUploads();
+    await createFolder(item.folder);
+    if (item.status !== "sending" || item.folder.error) {  // cancelled meanwhile, or failed
+      if (item.status === "sending") Object.assign(item, { status: "failed", error: item.folder.error });
+      uploading = false;
+      renderUploads();
+      nextUpload();
+      return;
+    }
+  }
+  const where = item.folder ? [item.folder.saved, item.dir].filter(Boolean).join("/") : "";
   const xhr = new XMLHttpRequest();
   item.xhr = xhr;
-  xhr.open("PUT", `/api/files?name=${encodeURIComponent(item.file.name)}`);
+  xhr.open("PUT", `/api/files?name=${encodeURIComponent(item.file.name)}`
+    + (where ? `&folder=${encodeURIComponent(where)}` : ""));
   // Progress only updates the bar and its text: rebuilding the list several times a second
   // would replace the Cancel button between press and release, so clicks would be lost.
   xhr.upload.onprogress = (event) => {
@@ -1155,10 +1236,12 @@ function nextUpload() {
       // No JSON body: the status code says enough.
     }
     if (xhr.status === 200) {
-      Object.assign(item, { status: "done", savedAs: reply.name });
-      addLog("file");
-      logEntries[logEntries.length - 1].name = reply.name;
-      renderLog();
+      Object.assign(item, { status: "done", savedAs: where ? `${where}/${reply.name}` : reply.name });
+      if (!item.folder) {  // a folder is logged once, when it is created
+        addLog("file");
+        logEntries[logEntries.length - 1].name = reply.name;
+        renderLog();
+      }
     } else {
       Object.assign(item, { status: "failed", error: t(reply.error || "pairFailed") });
     }
@@ -1238,8 +1321,16 @@ function bindFiles() {
   const drop = $("drop");
   $("choose-files").addEventListener("click", () => $("file-input").click());
   $("file-input").addEventListener("change", () => {
-    addFiles($("file-input").files);
+    addFiles(plainFiles($("file-input").files));
     $("file-input").value = "";
+  });
+  // Phones mostly cannot pick folders; there only files are offered.
+  $("choose-folder").hidden = !("webkitdirectory" in $("folder-input"))
+    || matchMedia("(pointer: coarse)").matches;
+  $("choose-folder").addEventListener("click", () => $("folder-input").click());
+  $("folder-input").addEventListener("change", () => {
+    addFiles(plainFiles($("folder-input").files));
+    $("folder-input").value = "";
   });
   for (const type of ["dragenter", "dragover"]) {
     drop.addEventListener(type, (event) => {
@@ -1251,7 +1342,7 @@ function bindFiles() {
   drop.addEventListener("drop", (event) => {
     event.preventDefault();
     drop.classList.remove("over");
-    if (state.session) addFiles(event.dataTransfer.files);
+    if (state.session) droppedFiles(event.dataTransfer).then(addFiles);
   });
   $("uploads-clear").addEventListener("click", () => {
     for (let i = uploads.length - 1; i >= 0; i -= 1) {

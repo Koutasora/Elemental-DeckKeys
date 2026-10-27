@@ -133,8 +133,12 @@
     <div id="panel-files" class="panel" hidden>
       <div id="drop" class="drop">
         <p data-i18n="dropHint"></p>
-        <button id="choose-files" type="button" class="primary" data-i18n="chooseFiles"></button>
+        <div class="drop-buttons">
+          <button id="choose-files" type="button" class="primary" data-i18n="chooseFiles"></button>
+          <button id="choose-folder" type="button" data-i18n="chooseFolder" hidden></button>
+        </div>
         <input id="file-input" type="file" multiple hidden>
+        <input id="folder-input" type="file" webkitdirectory hidden>
       </div>
       <p class="hint" data-i18n="filesFolder"></p>
       <div id="uploads-head" class="controls" hidden>

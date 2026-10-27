@@ -18,7 +18,7 @@ from . import __version__, certs, qr
 from .keyboard import (BROWSER_CODES, BUTTONS, MACROS, MEDIA_CODES, MEDIA_KEYS, VirtualKeyboard,
                        VirtualMouse)
 from .pairing import CODE_LIFETIME, KINDS, DeviceStore, Pairing
-from .transfers import Transfers
+from .transfers import Transfers, safe_name
 from .websocket import WebSocket, accept_key
 
 COOKIE = "deckkeys"
@@ -35,6 +35,7 @@ SESSION_MINUTES = (5, 10, 15, 20, 30)
 MAX_TEXT = 20000
 MAX_BODY = 64 * 1024
 MAX_HEAD = 16 * 1024
+MAX_FOLDER_DEPTH = 32
 
 STATIC = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -324,6 +325,8 @@ class Server:
             return await self._json(writer, request, 200, {"url": url, "svg": qr.svg(url)})
         if path == "/api/files" and method == "PUT":
             return await self._upload(request, reader, writer)
+        if path == "/api/files/folder" and method == "POST":
+            return await self._create_folder(request, writer)
         if path == "/api/files" and method == "GET":
             if not self._session_device(request):
                 return await self._json(writer, request, 403, {"error": "no_session"})
@@ -409,8 +412,30 @@ class Server:
             return device_id
         return None
 
+    async def _create_folder(self, request, writer):
+        """POST /api/files/folder {"name": ...}: a new folder in Received for a sent folder."""
+        if not request.same_origin():
+            return await self._respond(writer, request, 403)
+        device_id = self._session_device(request)
+        if not device_id:
+            return await self._json(writer, request, 403, {"error": "no_session"})
+        try:
+            name = str(json.loads(request.body).get("name", ""))
+        except (ValueError, AttributeError):
+            return await self._respond(writer, request, 400)
+        device = self.devices.devices.get(device_id, {}).get("name", "")
+        try:
+            final = self.transfers.create_folder(name, device)
+        except OSError as e:
+            print(f"Cannot save files: {e}", flush=True)
+            return await self._json(writer, request, 500, {"error": "save_failed"})
+        await self._json(writer, request, 200, {"name": final})
+
     async def _upload(self, request, reader, writer):
-        """PUT /api/files?name=...: one file, streamed into the transfers folder."""
+        """PUT /api/files?name=...[&folder=...]: one file, streamed into the transfers folder.
+
+        `folder` is the file's folder inside a folder made by POST /api/files/folder.
+        """
         if not request.same_origin():
             return await self._respond(writer, request, 403)
         device_id = self._session_device(request)
@@ -420,12 +445,14 @@ class Server:
             length = int(request.headers["content-length"])
         except (KeyError, ValueError):
             return await self._respond(writer, request, 411)
-        if length < 0:
+        folder = [safe_name(p) for p in
+                  request.query.get("folder", [""])[0].replace("\\", "/").split("/") if p]
+        if length < 0 or len(folder) > MAX_FOLDER_DEPTH:
             return await self._respond(writer, request, 400)
         try:
             if length > self.transfers.free_space():
                 return await self._json(writer, request, 507, {"error": "no_space"})
-            part, out = self.transfers.open_part()
+            part, out = self.transfers.open_part(folder)
         except OSError as e:
             print(f"Cannot save files: {e}", flush=True)
             return await self._json(writer, request, 500, {"error": "save_failed"})
