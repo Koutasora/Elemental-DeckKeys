@@ -1222,12 +1222,12 @@ function showProgress(row) {
   showTitle();
 }
 
-function rowButton(li, label, action) {
+function rowButton(actions, label, action) {
   const button = document.createElement("button");
   button.type = "button";
   button.textContent = t(label);
   button.addEventListener("click", action);
-  li.append(button);
+  actions.append(button);
 }
 
 function renderUploads() {
@@ -1247,11 +1247,13 @@ function renderUploads() {
     info.className = "info";
     info.textContent = rowText(row, status);
     info.classList.toggle("error", status === "failed");
-    li.append(name, info);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    li.append(name, info, actions);
     row.info = info;
     row.bar = null;
     if (status === "failed") {
-      rowButton(li, "resume", () => {
+      rowButton(actions, "resume", () => {
         row.error = null;
         joinBatch(row);
         renderUploads();
@@ -1259,7 +1261,7 @@ function renderUploads() {
       });
     }
     if (status === "waiting" || status === "sending" || status === "failed") {
-      rowButton(li, "cancel", () => {
+      rowButton(actions, "cancel", () => {
         row.cancelled = true;
         for (const xhr of row.sending.keys()) xhr.abort();
         renderUploads();
