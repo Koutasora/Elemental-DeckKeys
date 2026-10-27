@@ -54,6 +54,7 @@ HOST_RE = re.compile(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$|^\[[0-9A-Fa-f:.]+\](:\d{1,5}
 class Request:
     def __init__(self, method, path, headers, body, query=""):
         self.peer = None
+        self.keep_alive = False  # set where the whole body was read, so the next can follow
         self.query = parse_qs(query)
         self.method = method
         self.path = path
@@ -193,7 +194,7 @@ class Server:
         headers = [
             f"HTTP/1.1 {status} {STATUS_TEXT.get(status, '')}",
             f"Content-Length: {len(body)}",
-            "Connection: close",
+            "Connection: keep-alive" if request and request.keep_alive else "Connection: close",
             "Cache-Control: no-store",
             "X-Content-Type-Options: nosniff",
             "Referrer-Policy: no-referrer",
@@ -218,9 +219,14 @@ class Server:
                 return
             if not self.enabled and not is_loopback(peer[0]):
                 return
-            request = await asyncio.wait_for(read_request(reader), 10)
-            request.peer = peer[0]
-            await self._route(request, reader, writer)
+            # A folder is many uploads in a row: they reuse the connection instead of a new
+            # TLS handshake for every file.
+            while True:
+                request = await asyncio.wait_for(read_request(reader), 10)
+                request.peer = peer[0]
+                await self._route(request, reader, writer)
+                if not request.keep_alive or not self.enabled:
+                    break
         except (asyncio.TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError,
                 ConnectionError, ssl.SSLError, ValueError):
             pass
@@ -427,6 +433,7 @@ class Server:
             size = int(data.get("size", 0))
         except (ValueError, TypeError, AttributeError):
             return await self._respond(writer, request, 400)
+        request.keep_alive = True
         device = self.devices.devices.get(device_id, {}).get("name", "")
         try:
             if size > self.transfers.free_space():
@@ -479,7 +486,9 @@ class Server:
         except BaseException:
             self.transfers.discard(part)
             raise
-        print(f"Received: {name} ({length} bytes)", flush=True)
+        if not folder:  # a folder's files would flood the log
+            print(f"Received: {name} ({length} bytes)", flush=True)
+        request.keep_alive = True
         await self._json(writer, request, 200, {"name": name, "size": length})
 
     async def _download(self, request, writer):

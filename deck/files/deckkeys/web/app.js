@@ -45,6 +45,7 @@ const I18N = {
     dropHint: "Drop files or folders here to send them to the Deck",
     chooseFiles: "Choose files",
     chooseFolder: "Choose folder",
+    readingFolder: "Reading the folder…",
     filesFolder: "Files are saved on the Deck in Downloads/DeckKeysTransfers/Received, folders with everything inside. Nothing is overwritten.",
     fromDeck: "Get from the Deck",
     refresh: "Refresh",
@@ -203,6 +204,7 @@ const I18N = {
     dropHint: "Upuść tu pliki lub foldery, aby wysłać je na Decka",
     chooseFiles: "Wybierz pliki",
     chooseFolder: "Wybierz folder",
+    readingFolder: "Odczytywanie folderu…",
     filesFolder: "Pliki zapisują się na Decku w Downloads/DeckKeysTransfers/Received, foldery razem z zawartością. Nic nie jest nadpisywane.",
     fromDeck: "Pobierz z Decka",
     refresh: "Odśwież",
@@ -1066,6 +1068,8 @@ function bindPad() {
 
 // --- Files -----------------------------------------------------------------
 
+// Rows of the upload list: a single file, or a sent folder with all its files. A row keeps
+// counters, so a folder of tens of thousands of files is never walked again while it is sent.
 const uploads = [];
 let uploading = false;
 
@@ -1080,136 +1084,102 @@ function formatSize(bytes) {
   return `${unit ? value.toFixed(1) : value} ${units[unit]}`;
 }
 
-// A single file is one row; a sent folder is one row for all its files.
-function uploadRows() {
-  const rows = [];
-  const byFolder = new Map();
-  for (const item of uploads) {
-    if (!item.folder) {
-      rows.push({ items: [item], folder: null });
-    } else if (byFolder.has(item.folder)) {
-      byFolder.get(item.folder).items.push(item);
-    } else {
-      const row = { items: [item], folder: item.folder };
-      byFolder.set(item.folder, row);
-      rows.push(row);
-    }
-  }
-  return rows;
-}
-
-function rowProgress(row) {
-  let size = 0;
-  let sent = 0;
-  let done = 0;
-  for (const item of row.items) {
-    size += item.file.size;
-    if (item.status === "done") {
-      sent += item.file.size;
-      done += 1;
-    } else if (item.status === "sending") {
-      sent += item.sent;
-    }
-  }
-  return { size, sent, done };
+function newRow(folder) {
+  return {
+    folder, files: [], size: 0, next: 0, done: 0, doneBytes: 0, failed: 0, error: null,
+    cancelled: false, current: null, sent: 0, savedAs: null, info: null, bar: null,
+  };
 }
 
 function rowStatus(row) {
-  const statuses = row.items.map((item) => item.status);
-  if (statuses.includes("sending")) return "sending";
-  if (statuses.includes("waiting")) return statuses.includes("done") ? "sending" : "waiting";
-  if (statuses.every((s) => s === "done")) return "done";
-  return statuses.includes("failed") ? "failed" : "cancelled";
+  if (row.current) return "sending";
+  if (row.cancelled) return "cancelled";
+  if (row.error) return "failed";
+  if (row.next < row.files.length) return row.done ? "sending" : "waiting";
+  return "done";
+}
+
+// The rest of a row is not sent after an error: on a folder the reason (no space, no session,
+// connection lost) would be the same for every file left.
+function failRow(row, error) {
+  row.error = error;
+  row.failed = row.files.length - row.done;
+  row.next = row.files.length;
 }
 
 function rowText(row, status) {
-  const progress = rowProgress(row);
-  const count = row.items.length;
+  const count = row.files.length;
   if (!row.folder) {
-    const item = row.items[0];
     return {
       waiting: t("uploadWaiting"),
-      sending: t("uploadSending", { sent: formatSize(item.sent), size: formatSize(item.file.size) }),
-      done: t("uploadDone", { name: item.savedAs }),
+      sending: t("uploadSending", { sent: formatSize(row.sent), size: formatSize(row.size) }),
+      done: t("uploadDone", { name: row.savedAs }),
       cancelled: t("uploadCancelled"),
-      failed: `${t("uploadFailed")}: ${item.error}`,
+      failed: `${t("uploadFailed")}: ${row.error}`,
     }[status];
   }
-  const failed = row.items.filter((item) => item.status === "failed");
   return {
     waiting: t("uploadWaiting"),
     sending: t("folderSending", {
-      sent: formatSize(progress.sent), size: formatSize(progress.size), done: progress.done, count,
+      sent: formatSize(row.doneBytes + row.sent), size: formatSize(row.size), done: row.done, count,
     }),
     done: t("uploadDone", { name: `${row.folder.saved}/` }),
-    cancelled: progress.done
-      ? `${t("uploadCancelled")} · ${t("folderSent", { done: progress.done, count })}`
+    cancelled: row.done
+      ? `${t("uploadCancelled")} · ${t("folderSent", { done: row.done, count })}`
       : t("uploadCancelled"),
-    failed: failed.length === count
-      ? `${t("uploadFailed")}: ${failed[0].error}`
-      : t("folderFailed", { failed: failed.length, count, error: failed[0]?.error }),
+    failed: row.done
+      ? t("folderFailed", { failed: row.failed, count, error: row.error })
+      : `${t("uploadFailed")}: ${row.error}`,
   }[status];
 }
 
-// Called on upload progress: only the bar and its text change, see nextUpload.
-function showProgress(item) {
-  if (!item.bar) return;
-  const row = item.folder ? uploadRows().find((r) => r.folder === item.folder) : null;
-  if (row) {
-    item.bar.value = rowProgress(row).sent;
-    item.info.textContent = rowText(row, "sending");
-  } else {
-    item.bar.value = item.sent;
-    item.info.textContent = rowText({ items: [item], folder: null }, "sending");
-  }
+// While a row is being sent only its bar and text change: rebuilding the list would replace
+// the Cancel button between press and release, so clicks would be lost.
+function showProgress(row) {
+  if (!row.bar) return;
+  row.bar.value = row.doneBytes + row.sent;
+  row.info.textContent = rowText(row, "sending");
 }
 
 function renderUploads() {
   const list = $("uploads");
   list.replaceChildren();
   $("uploads-head").hidden = uploads.length === 0;
-  for (const row of uploadRows()) {
+  for (const row of uploads) {
     const status = rowStatus(row);
-    const progress = rowProgress(row);
     const li = document.createElement("li");
     const name = document.createElement("span");
     name.className = "name";
     name.textContent = row.folder
-      ? `${row.folder.saved || row.folder.name}/ · ${t("folderFiles", { count: row.items.length })}`
-        + ` · ${formatSize(progress.size)}`
-      : `${row.items[0].path} · ${formatSize(progress.size)}`;
+      ? `${row.folder.saved || row.folder.name}/ · ${t("folderFiles", { count: row.files.length })}`
+        + ` · ${formatSize(row.size)}`
+      : `${row.files[0].path} · ${formatSize(row.size)}`;
     const info = document.createElement("span");
     info.className = "info";
     info.textContent = rowText(row, status);
     info.classList.toggle("error", status === "failed");
     li.append(name, info);
-    let bar = null;
+    row.info = info;
+    row.bar = null;
     if (status === "waiting" || status === "sending") {
       const cancel = document.createElement("button");
       cancel.type = "button";
       cancel.textContent = t("cancel");
-      // A folder of small files rebuilds the list after every file, which can replace the
-      // button between press and release; pressing it is enough.
-      const stop = () => {
-        for (const item of row.items) if (item.status === "waiting") item.status = "cancelled";
-        for (const item of row.items) {
-          if (item.status !== "sending") continue;
-          if (item.xhr) item.xhr.abort();
-          else item.status = "cancelled";
-        }
+      cancel.addEventListener("click", () => {
+        row.cancelled = true;
+        row.next = row.files.length;
+        if (row.current?.xhr) row.current.xhr.abort();
         renderUploads();
-      };
-      cancel.addEventListener("pointerdown", stop);
-      cancel.addEventListener("click", stop);
+      });
       li.append(cancel);
     }
     if (status === "sending") {
-      bar = document.createElement("progress");
-      bar.max = progress.size || 1;
-      bar.value = progress.sent;
+      const bar = document.createElement("progress");
+      bar.max = row.size || 1;
+      bar.value = row.doneBytes + row.sent;
       li.append(bar);
+      row.bar = bar;
     }
-    for (const item of row.items) Object.assign(item, { info, bar });
     list.append(li);
   }
 }
@@ -1220,14 +1190,19 @@ function addFiles(entries) {
   const folders = new Map();
   for (const { file, path } of entries) {
     const parts = path.split("/");
-    let folder = null;
+    let row;
     if (parts.length > 1) {
-      if (!folders.has(parts[0])) folders.set(parts[0], { name: parts[0], saved: null, error: null });
-      folder = folders.get(parts[0]);
+      if (!folders.has(parts[0])) {
+        folders.set(parts[0], newRow({ name: parts[0], saved: null }));
+        uploads.push(folders.get(parts[0]));
+      }
+      row = folders.get(parts[0]);
+    } else {
+      row = newRow(null);
+      uploads.push(row);
     }
-    uploads.push({
-      file, path, folder, dir: parts.slice(1, -1).join("/"), status: "waiting", sent: 0, xhr: null,
-    });
+    row.files.push({ file, dir: parts.slice(1, -1).join("/"), path });
+    row.size += file.size;
   }
   renderUploads();
   nextUpload();
@@ -1243,21 +1218,18 @@ async function droppedFiles(dataTransfer) {
   const entries = [...dataTransfer.items].map((item) => item.webkitGetAsEntry?.()).filter(Boolean);
   if (!entries.length) return plainFiles(dataTransfer.files);
   const found = [];
+  const readFile = (entry, path) => new Promise((ok, fail) => entry.file(ok, fail))
+    .then((file) => found.push({ file, path: path + entry.name }))
+    .catch(() => {});  // a file that cannot be read (removed, no access) is left out
   async function walk(entry, path) {
-    if (entry.isFile) {
-      try {
-        const file = await new Promise((ok, fail) => entry.file(ok, fail));
-        found.push({ file, path: path + entry.name });
-      } catch {
-        // A file that cannot be read (removed, no access) is left out.
-      }
-      return;
-    }
+    if (entry.isFile) return readFile(entry, path);
+    const inner = `${path}${entry.name}/`;
     const reader = entry.createReader();
     for (;;) {
       const batch = await new Promise((ok, fail) => reader.readEntries(ok, fail));
       if (!batch.length) break;
-      for (const child of batch) await walk(child, `${path}${entry.name}/`);
+      await Promise.all(batch.filter((e) => e.isFile).map((e) => readFile(e, inner)));
+      for (const child of batch) if (child.isDirectory) await walk(child, inner);
     }
   }
   for (const entry of entries) await walk(entry, "");
@@ -1265,27 +1237,23 @@ async function droppedFiles(dataTransfer) {
 }
 
 // The Deck checks the size of the whole folder first, so a folder that does not fit is not
-// left half sent.
-async function createFolder(folder) {
-  const size = uploads.filter((u) => u.folder === folder && u.status !== "cancelled")
-    .reduce((sum, u) => sum + u.file.size, 0);
+// left half sent. Returns an error text, or null.
+async function createFolder(row) {
   try {
     const response = await fetch("/api/files/folder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: folder.name, size }),
+      body: JSON.stringify({ name: row.folder.name, size: row.size }),
     });
     const reply = await response.json().catch(() => ({}));
-    if (response.ok) {
-      folder.saved = reply.name;
-      addLog("file");
-      logEntries[logEntries.length - 1].name = `${reply.name}/`;
-      renderLog();
-    } else {
-      folder.error = t(reply.error || "pairFailed");
-    }
+    if (!response.ok) return t(reply.error || "pairFailed");
+    row.folder.saved = reply.name;
+    addLog("file");
+    logEntries[logEntries.length - 1].name = `${reply.name}/`;
+    renderLog();
+    return null;
   } catch {
-    folder.error = t("disconnected");
+    return t("disconnected");
   }
 }
 
@@ -1293,37 +1261,39 @@ async function createFolder(folder) {
 // A sent folder is first created on the Deck, then its files go into it.
 async function nextUpload() {
   if (uploading) return;
-  const item = uploads.find((u) => u.status === "waiting");
-  if (!item) return;
-  if (!state.session || item.folder?.error) {
-    Object.assign(item, { status: "failed", error: item.folder?.error || t("no_session") });
+  const row = uploads.find((r) => r.next < r.files.length);
+  if (!row) return;
+  if (!state.session) {
+    failRow(row, t("no_session"));
     renderUploads();
     nextUpload();
     return;
   }
   uploading = true;
-  item.status = "sending";
-  if (item.folder && !item.folder.saved) {
+  if (row.folder && !row.folder.saved) {
+    row.current = { xhr: null };
     renderUploads();
-    await createFolder(item.folder);
-    if (item.status !== "sending" || item.folder.error) {  // cancelled meanwhile, or failed
-      if (item.status === "sending") Object.assign(item, { status: "failed", error: item.folder.error });
+    const error = await createFolder(row);
+    row.current = null;
+    if (error && !row.cancelled) failRow(row, error);
+    if (error || row.cancelled) {
       uploading = false;
       renderUploads();
       nextUpload();
       return;
     }
   }
-  const where = item.folder ? [item.folder.saved, item.dir].filter(Boolean).join("/") : "";
+  const entry = row.files[row.next];
+  row.next += 1;
+  row.sent = 0;
+  const where = row.folder ? [row.folder.saved, entry.dir].filter(Boolean).join("/") : "";
   const xhr = new XMLHttpRequest();
-  item.xhr = xhr;
-  xhr.open("PUT", `/api/files?name=${encodeURIComponent(item.file.name)}`
+  row.current = { xhr };
+  xhr.open("PUT", `/api/files?name=${encodeURIComponent(entry.file.name)}`
     + (where ? `&folder=${encodeURIComponent(where)}` : ""));
-  // Progress only updates the bar and its text: rebuilding the list several times a second
-  // would replace the Cancel button between press and release, so clicks would be lost.
   xhr.upload.onprogress = (event) => {
-    item.sent = event.loaded;
-    showProgress(item);
+    row.sent = event.loaded;
+    showProgress(row);
   };
   xhr.onload = () => {
     let reply = {};
@@ -1333,26 +1303,30 @@ async function nextUpload() {
       // No JSON body: the status code says enough.
     }
     if (xhr.status === 200) {
-      Object.assign(item, { status: "done", savedAs: where ? `${where}/${reply.name}` : reply.name });
-      if (!item.folder) {  // a folder is logged once, when it is created
+      row.done += 1;
+      row.doneBytes += entry.file.size;
+      if (!row.folder) {  // a folder is logged once, when it is created
+        row.savedAs = reply.name;
         addLog("file");
         logEntries[logEntries.length - 1].name = reply.name;
         renderLog();
       }
     } else {
-      Object.assign(item, { status: "failed", error: t(reply.error || "pairFailed") });
+      failRow(row, t(reply.error || "pairFailed"));
     }
   };
-  xhr.onerror = () => Object.assign(item, { status: "failed", error: t("disconnected") });
-  xhr.onabort = () => { item.status = "cancelled"; };
+  xhr.onerror = () => failRow(row, t("disconnected"));
   xhr.onloadend = () => {
-    item.xhr = null;
+    row.current = null;
+    row.sent = 0;
     uploading = false;
-    renderUploads();
+    if (rowStatus(row) === "sending") showProgress(row);  // the next file of the same folder
+    else renderUploads();
     nextUpload();
   };
-  renderUploads();
-  xhr.send(item.file);
+  if (row.bar) showProgress(row);
+  else renderUploads();
+  xhr.send(entry.file);
 }
 
 function downloadUrl(name) {
@@ -1439,11 +1413,18 @@ function bindFiles() {
   drop.addEventListener("drop", (event) => {
     event.preventDefault();
     drop.classList.remove("over");
-    if (state.session) droppedFiles(event.dataTransfer).then(addFiles);
+    if (!state.session) return;
+    // A big folder takes a while to list; nothing would show until then.
+    const hint = drop.querySelector("p");
+    hint.textContent = t("readingFolder");
+    droppedFiles(event.dataTransfer).then(addFiles).finally(() => {
+      hint.textContent = t("dropHint");
+    });
   });
   $("uploads-clear").addEventListener("click", () => {
     for (let i = uploads.length - 1; i >= 0; i -= 1) {
-      if (uploads[i].status !== "waiting" && uploads[i].status !== "sending") uploads.splice(i, 1);
+      const status = rowStatus(uploads[i]);
+      if (status !== "waiting" && status !== "sending") uploads.splice(i, 1);
     }
     renderUploads();
   });

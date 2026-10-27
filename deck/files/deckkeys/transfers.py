@@ -18,6 +18,7 @@ OUTBOX = "Send to PC"
 SPACE_RESERVE = 200 * 1024 * 1024
 MAX_NAME_BYTES = 200
 MAX_RECEIVED = 20
+SAVE_INTERVAL = 5
 
 
 def safe_name(raw):
@@ -39,6 +40,7 @@ class Transfers:
         self.inbox = os.path.join(self.folder, INBOX)
         self.outbox = os.path.join(self.folder, OUTBOX)
         self._received_path = os.path.join(data_dir, "received.json")
+        self._saved_at = 0.0
         try:
             with open(self._received_path, encoding="utf-8") as f:
                 self.received = json.load(f)
@@ -184,11 +186,15 @@ class Transfers:
         self._save_received()
 
     def _add_to_folder(self, folder, size):
-        """A sent folder is one entry on the list; its size grows with every file."""
+        """A sent folder is one entry on the list; its size grows with every file.
+
+        With thousands of small files the list is written at most every few seconds.
+        """
         for entry in self.received:
             if entry["name"] == folder + "/":
                 entry["size"] += size
-                self._save_received()
+                if time.monotonic() - self._saved_at > SAVE_INTERVAL:
+                    self._save_received()
                 return
 
     def clear_received(self):
@@ -196,5 +202,6 @@ class Transfers:
         self._save_received()
 
     def _save_received(self):
+        self._saved_at = time.monotonic()
         with open(self._received_path, "w", encoding="utf-8") as f:
             json.dump(self.received, f)
