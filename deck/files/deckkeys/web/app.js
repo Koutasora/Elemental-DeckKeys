@@ -60,6 +60,10 @@ const I18N = {
     uploadDone: "Saved as {name}",
     uploadCancelled: "Cancelled",
     uploadFailed: "Not sent",
+    folderFiles: "{count} files",
+    folderSending: "{sent} of {size} · {done} of {count} files",
+    folderSent: "{done} of {count} files sent",
+    folderFailed: "{failed} of {count} files not sent: {error}",
     no_space: "Not enough space on the Deck.",
     save_failed: "The Deck could not save the file.",
     logFile: "File sent: {name}",
@@ -214,6 +218,10 @@ const I18N = {
     uploadDone: "Zapisano jako {name}",
     uploadCancelled: "Anulowano",
     uploadFailed: "Nie wysłano",
+    folderFiles: "plików: {count}",
+    folderSending: "{sent} z {size} · pliki: {done} z {count}",
+    folderSent: "wysłane pliki: {done} z {count}",
+    folderFailed: "Nie wysłano plików: {failed} z {count}: {error}",
     no_space: "Za mało miejsca na Decku.",
     save_failed: "Deck nie mógł zapisać pliku.",
     logFile: "Wysłano plik: {name}",
@@ -1072,47 +1080,136 @@ function formatSize(bytes) {
   return `${unit ? value.toFixed(1) : value} ${units[unit]}`;
 }
 
-function renderUploads() {
-  const list = $("uploads");
-  list.replaceChildren();
-  $("uploads-head").hidden = uploads.length === 0;
+// A single file is one row; a sent folder is one row for all its files.
+function uploadRows() {
+  const rows = [];
+  const byFolder = new Map();
   for (const item of uploads) {
-    const li = document.createElement("li");
-    const name = document.createElement("span");
-    name.className = "name";
-    name.textContent = `${item.path} · ${formatSize(item.file.size)}`;
-    const info = document.createElement("span");
-    info.className = "info";
-    const texts = {
+    if (!item.folder) {
+      rows.push({ items: [item], folder: null });
+    } else if (byFolder.has(item.folder)) {
+      byFolder.get(item.folder).items.push(item);
+    } else {
+      const row = { items: [item], folder: item.folder };
+      byFolder.set(item.folder, row);
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function rowProgress(row) {
+  let size = 0;
+  let sent = 0;
+  let done = 0;
+  for (const item of row.items) {
+    size += item.file.size;
+    if (item.status === "done") {
+      sent += item.file.size;
+      done += 1;
+    } else if (item.status === "sending") {
+      sent += item.sent;
+    }
+  }
+  return { size, sent, done };
+}
+
+function rowStatus(row) {
+  const statuses = row.items.map((item) => item.status);
+  if (statuses.includes("sending")) return "sending";
+  if (statuses.includes("waiting")) return statuses.includes("done") ? "sending" : "waiting";
+  if (statuses.every((s) => s === "done")) return "done";
+  return statuses.includes("failed") ? "failed" : "cancelled";
+}
+
+function rowText(row, status) {
+  const progress = rowProgress(row);
+  const count = row.items.length;
+  if (!row.folder) {
+    const item = row.items[0];
+    return {
       waiting: t("uploadWaiting"),
       sending: t("uploadSending", { sent: formatSize(item.sent), size: formatSize(item.file.size) }),
       done: t("uploadDone", { name: item.savedAs }),
       cancelled: t("uploadCancelled"),
       failed: `${t("uploadFailed")}: ${item.error}`,
-    };
-    info.textContent = texts[item.status];
-    info.classList.toggle("error", item.status === "failed");
+    }[status];
+  }
+  const failed = row.items.filter((item) => item.status === "failed");
+  return {
+    waiting: t("uploadWaiting"),
+    sending: t("folderSending", {
+      sent: formatSize(progress.sent), size: formatSize(progress.size), done: progress.done, count,
+    }),
+    done: t("uploadDone", { name: `${row.folder.saved}/` }),
+    cancelled: progress.done
+      ? `${t("uploadCancelled")} · ${t("folderSent", { done: progress.done, count })}`
+      : t("uploadCancelled"),
+    failed: failed.length === count
+      ? `${t("uploadFailed")}: ${failed[0].error}`
+      : t("folderFailed", { failed: failed.length, count, error: failed[0]?.error }),
+  }[status];
+}
+
+// Called on upload progress: only the bar and its text change, see nextUpload.
+function showProgress(item) {
+  if (!item.bar) return;
+  const row = item.folder ? uploadRows().find((r) => r.folder === item.folder) : null;
+  if (row) {
+    item.bar.value = rowProgress(row).sent;
+    item.info.textContent = rowText(row, "sending");
+  } else {
+    item.bar.value = item.sent;
+    item.info.textContent = rowText({ items: [item], folder: null }, "sending");
+  }
+}
+
+function renderUploads() {
+  const list = $("uploads");
+  list.replaceChildren();
+  $("uploads-head").hidden = uploads.length === 0;
+  for (const row of uploadRows()) {
+    const status = rowStatus(row);
+    const progress = rowProgress(row);
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = row.folder
+      ? `${row.folder.saved || row.folder.name}/ · ${t("folderFiles", { count: row.items.length })}`
+        + ` · ${formatSize(progress.size)}`
+      : `${row.items[0].path} · ${formatSize(progress.size)}`;
+    const info = document.createElement("span");
+    info.className = "info";
+    info.textContent = rowText(row, status);
+    info.classList.toggle("error", status === "failed");
     li.append(name, info);
-    item.info = info;
-    item.bar = null;
-    if (item.status === "waiting" || item.status === "sending") {
+    let bar = null;
+    if (status === "waiting" || status === "sending") {
       const cancel = document.createElement("button");
       cancel.type = "button";
       cancel.textContent = t("cancel");
-      cancel.addEventListener("click", () => {
-        if (item.xhr) item.xhr.abort();
-        else item.status = "cancelled";
+      // A folder of small files rebuilds the list after every file, which can replace the
+      // button between press and release; pressing it is enough.
+      const stop = () => {
+        for (const item of row.items) if (item.status === "waiting") item.status = "cancelled";
+        for (const item of row.items) {
+          if (item.status !== "sending") continue;
+          if (item.xhr) item.xhr.abort();
+          else item.status = "cancelled";
+        }
         renderUploads();
-      });
+      };
+      cancel.addEventListener("pointerdown", stop);
+      cancel.addEventListener("click", stop);
       li.append(cancel);
     }
-    if (item.status === "sending") {
-      const bar = document.createElement("progress");
-      bar.max = item.file.size || 1;
-      bar.value = item.sent;
+    if (status === "sending") {
+      bar = document.createElement("progress");
+      bar.max = progress.size || 1;
+      bar.value = progress.sent;
       li.append(bar);
-      item.bar = bar;
     }
+    for (const item of row.items) Object.assign(item, { info, bar });
     list.append(li);
   }
 }
@@ -1222,11 +1319,7 @@ async function nextUpload() {
   // would replace the Cancel button between press and release, so clicks would be lost.
   xhr.upload.onprogress = (event) => {
     item.sent = event.loaded;
-    if (!item.bar) return;
-    item.bar.value = item.sent;
-    item.info.textContent = t("uploadSending", {
-      sent: formatSize(item.sent), size: formatSize(item.file.size),
-    });
+    showProgress(item);
   };
   xhr.onload = () => {
     let reply = {};
